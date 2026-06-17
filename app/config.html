@@ -64,9 +64,9 @@
   </header>
   <div class="main">
     <div class="col grids">
-      <p class="sectitle">Grids</p>
+      <p class="sectitle">Pages</p>
       <div id="gridlist"></div>
-      <div class="row" style="margin-top:12px"><button class="primary" id="addGrid">+ Add Grid</button></div>
+      <div class="row" style="margin-top:12px; gap:6px"><button class="primary" id="addGrid">+ Grid</button><button id="addDash">+ Dashboard</button></div>
     </div>
     <div class="col editor">
       <div id="gridmeta"></div>
@@ -129,7 +129,8 @@
     config.grids.forEach((g, i) => {
       const d = document.createElement('div');
       d.className = 'gridrow' + (i === gi ? ' active' : '');
-      d.innerHTML = `<span>${esc(g.name) || '(unnamed)'}</span>` + (g.id === config.activeGridId ? '<span class="badge">● on panel</span>' : '');
+      const tag = g.kind === 'web' ? '🌐' : '▦';
+      d.innerHTML = `<span>${tag} ${esc(g.name) || '(unnamed)'}</span>` + (g.id === config.activeGridId ? '<span class="badge">● on panel</span>' : '');
       d.onclick = () => { gi = i; ti = -1; render(); };
       el.appendChild(d);
     });
@@ -151,7 +152,7 @@
     document.getElementById('gCols').onchange = e => { g.cols = Math.max(1, Math.min(12, +e.target.value || 1)); ensureTiles(g); ti = -1; render(); markDirty(); };
     document.getElementById('gRows').onchange = e => { g.rows = Math.max(1, Math.min(6, +e.target.value || 1)); ensureTiles(g); ti = -1; render(); markDirty(); };
     document.getElementById('gActive').onclick = () => { config.activeGridId = g.id; renderGrids(); markDirty(); };
-    document.getElementById('gDelete').onclick = () => { if (config.grids.length <= 1) return; config.grids.splice(gi, 1); gi = 0; ti = -1; if (!config.grids.some(x => x.id === config.activeGridId)) config.activeGridId = config.grids[0].id; render(); markDirty(); };
+    document.getElementById('gDelete').onclick = deleteCurrentPage;
   }
 
   // ---- tile cells ----
@@ -251,12 +252,45 @@
     return '';
   }
 
-  function render() { renderGrids(); renderMeta(); renderTiles(); renderForm(); }
+  // ---- dashboard page (web) ----
+  function renderDashboard() {
+    const g = curGrid();
+    document.getElementById('tilegrid').innerHTML = '';
+    document.getElementById('tileform').innerHTML = '';
+    document.getElementById('iconpane').innerHTML = '';
+    const el = document.getElementById('gridmeta');
+    el.innerHTML = `
+      <div class="row"><label>Name</label><input id="gName" value="${esc(g.name)}"></div>
+      <div class="row"><label>URL</label><input id="gUrl" value="${esc(g.url)}" placeholder="https://…  (dashboard, monitoring page, etc.)"></div>
+      <div class="row"><button id="gActive">Show on panel</button><button class="danger" id="gDelete">Delete page</button></div>
+      <p class="hint">Shown full-screen on the panel. On the device: knob scrolls · tap clicks · double-click the knob to return to the page selector.</p>`;
+    document.getElementById('gName').oninput = e => { g.name = e.target.value; renderGrids(); markDirty(); };
+    document.getElementById('gUrl').oninput = e => { g.url = e.target.value; markDirty(); };
+    document.getElementById('gActive').onclick = () => { config.activeGridId = g.id; renderGrids(); markDirty(); };
+    document.getElementById('gDelete').onclick = deleteCurrentPage;
+  }
+  function deleteCurrentPage() {
+    if (config.grids.length <= 1) return;
+    config.grids.splice(gi, 1); gi = 0; ti = -1;
+    if (!config.grids.some(x => x.id === config.activeGridId)) config.activeGridId = config.grids[0].id;
+    render(); markDirty();
+  }
 
-  document.getElementById('addGrid').onclick = () => {
-    const g = { id: uid(), name: 'New Grid', cols: 8, rows: 2, tiles: [] }; ensureTiles(g);
+  function render() {
+    renderGrids();
+    const g = curGrid();
+    if (g && g.kind === 'web') renderDashboard();
+    else { renderMeta(); renderTiles(); renderForm(); }
+  }
+
+  function addPage(kind) {
+    let g;
+    if (kind === 'web') g = { id: uid(), name: 'Dashboard', kind: 'web', url: '' };
+    else { g = { id: uid(), name: 'New Grid', kind: 'grid', cols: 8, rows: 2, tiles: [] }; ensureTiles(g); }
     config.grids.push(g); gi = config.grids.length - 1; ti = -1; render(); markDirty();
-  };
+  }
+  document.getElementById('addGrid').onclick = () => addPage('grid');
+  document.getElementById('addDash').onclick = () => addPage('web');
   document.getElementById('saveBtn').onclick = doSave;
   window.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); if (dirty) doSave(); } });
 

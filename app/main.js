@@ -35,6 +35,7 @@ async function pushToPanel() {
 
 // Resolve app/image icons to something the panel renderer can draw (data: URL or file: URL).
 async function resolveGridIcons(grid) {
+  if (grid.kind === 'web') return grid;   // dashboard page — no tiles to resolve
   const tiles = await Promise.all((grid.tiles || []).map(async t => {
     const out = { ...t };
     if (t.iconType === 'image' && t.iconImage) { try { out.iconSrc = pathToFileURL(t.iconImage).href; } catch (e) {} }
@@ -91,7 +92,7 @@ function placePanel() {
     panelWin = new BrowserWindow({
       x: d.bounds.x, y: d.bounds.y, width: d.bounds.width, height: d.bounds.height,
       frame: false, show: false, skipTaskbar: true, backgroundColor: '#000000',
-      webPreferences: { nodeIntegration: true, contextIsolation: false },
+      webPreferences: { nodeIntegration: true, contextIsolation: false, webviewTag: true },
     });
     panelWin.loadFile(path.join(__dirname, 'index.html'));
     panelWin.once('ready-to-show', () => {

@@ -9,6 +9,8 @@
     background: radial-gradient(140% 200% at 0% 0%, #0e1b2e 0%, #05080d 70%);
     font-family: 'Segoe UI', system-ui, sans-serif; }
   #grid { display: grid; width: 1920px; height: 480px; gap: 10px; padding: 12px; box-sizing: border-box; }
+  #web { position: absolute; top: 0; left: 0; width: 1920px; height: 480px; border: 0; background: #fff; display: none; }
+  #web.show { display: flex; }
   .tile { display: flex; flex-direction: column; align-items: center; justify-content: center;
     border-radius: 18px; background: linear-gradient(160deg, #18293d, #0c141f);
     border: 1px solid #243a55; color: #cfe0f2; user-select: none;
@@ -39,17 +41,20 @@
 <body>
   <div id="stage">
     <div id="grid"></div>
+    <webview id="web" src="about:blank" partition="persist:dashboards"></webview>
     <div id="vol">🔊</div>
-    <div id="selector"><div class="seltitle">SELECT GRID</div><div class="selwheel"><div id="selitems"></div></div><div class="selhint">rotate to choose · press to select</div></div>
+    <div id="selector"><div class="seltitle">SELECT PAGE</div><div class="selwheel"><div id="selitems"></div></div><div class="selhint">rotate to choose · press to select</div></div>
   </div>
 <script>
   const { ipcRenderer } = require('electron');
-  const grid = document.getElementById('grid'), vol = document.getElementById('vol');
+  const grid = document.getElementById('grid'), vol = document.getElementById('vol'), web = document.getElementById('web');
   const selector = document.getElementById('selector'), selitems = document.getElementById('selitems');
   let cfg = { cols: 8, rows: 2, tiles: [] };
   let grids = [], activeId = null;
   let armed = false, idleT = null, lastHit = -1, volT = null;
   let selOpen = false, selIdx = 0, selAutoClose = null;
+  let webMode = false, curUrl = '', webReady = false, webDown = false, lastWeb = { x: 0, y: 0 }, webIdle = null;
+  web.addEventListener('dom-ready', () => { webReady = true; });
 
   // ---- active grid ----
   function build() {
@@ -66,7 +71,16 @@
       grid.appendChild(d);
     });
   }
-  ipcRenderer.on('grid', (e, g) => { cfg = g; build(); });
+  ipcRenderer.on('grid', (e, g) => {
+    cfg = g;
+    if (g && g.kind === 'web') {            // dashboard page -> show the webview
+      webMode = true; grid.style.display = 'none'; web.classList.add('show');
+      const url = g.url || 'about:blank';
+      if (url !== curUrl) { curUrl = url; webReady = false; web.src = url; }
+    } else {                                // tile grid
+      webMode = false; web.classList.remove('show'); grid.style.display = 'grid'; build();
+    }
+  });
   ipcRenderer.on('gridList', (e, d) => { grids = d.grids; activeId = d.activeId; });
 
   // ---- touch -> launch ----
@@ -82,14 +96,33 @@
     lastHit = i;
   }
   ipcRenderer.on('touch', (e, pts) => {
-    if (selOpen) return; // ignore touch while picking a grid
+    if (selOpen) return; // ignore touch while picking a page
     const p = pts.find(p => p.action === 1) || pts[0]; if (!p) return;
+    if (webMode) return webTouch(p);        // dashboard: forward as mouse to the webview
     const i = tileAt(p.x, 480 - p.y);
     highlight(i);
     if (!armed && i >= 0 && cfg.tiles[i] && cfg.tiles[i].type) { armed = true; ipcRenderer.send('launch', cfg.tiles[i]); }
     clearTimeout(idleT);
     idleT = setTimeout(() => { armed = false; highlight(-1); }, 180);
   });
+
+  // ---- dashboard touch -> mouse (tap = click, drag = move) ----
+  function webTouch(p) {
+    if (!webReady) return;
+    const x = Math.max(0, Math.min(1920, p.x)), y = Math.max(0, Math.min(480, 480 - p.y));
+    lastWeb = { x, y }; clearTimeout(webIdle);
+    try {
+      if (p.action === 1) {
+        if (!webDown) { webDown = true; web.sendInputEvent({ type: 'mouseDown', x, y, button: 'left', clickCount: 1 }); }
+        else web.sendInputEvent({ type: 'mouseMove', x, y });
+        webIdle = setTimeout(webRelease, 140);   // finger lifted without an explicit up frame
+      } else { webRelease(); }
+    } catch (e) {}
+  }
+  function webRelease() {
+    clearTimeout(webIdle);
+    if (webDown) { webDown = false; try { web.sendInputEvent({ type: 'mouseUp', x: lastWeb.x, y: lastWeb.y, button: 'left', clickCount: 1 }); } catch (e) {} }
+  }
 
   // ---- dial selector ----
   function renderWheel() {
@@ -116,7 +149,12 @@
   // The knob does click-type detection in hardware: press index 1 = single-click, 2 = double-click.
   ipcRenderer.on('knob', (e, k) => {
     if (k.type === 'rotate') {
-      if (selOpen) { moveSelector(k.dir > 0 ? -1 : 1); }   // CW scrolls down the list
+      if (selOpen) { moveSelector(k.dir > 0 ? -1 : 1); }                  // CW scrolls down the list
+      else if (webMode && webReady) {
+        // Native wheel event at center: Chromium routes it to whatever element is scrollable
+        // under that point, so inner scroll containers (Grafana/HA panels) scroll too.
+        try { web.sendInputEvent({ type: 'mouseWheel', x: 960, y: 240, deltaX: 0, deltaY: k.dir > 0 ? -120 : 120, wheelTicksX: 0, wheelTicksY: k.dir > 0 ? -1 : 1, hasPreciseScrollingDeltas: true, canScroll: true }); } catch (e) {}
+      }
       else { ipcRenderer.send('volume', k.dir > 0 ? 1 : -1); flashVol(k.dir > 0 ? '🔊 +' : '🔉 −'); }
       return;
     }
