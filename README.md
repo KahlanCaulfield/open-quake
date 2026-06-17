@@ -41,6 +41,27 @@ idle-blanks; the driver wakes it and sends a periodic keep-alive so it stays on.
 The on-board mic enumerates as a standard **"5- USB PnP Audio Device"** — any app
 can read it directly; `open-quake` doesn't wrap it.
 
+## Dashboards
+
+A page can be a web view instead of a tile grid (**+ Dashboard** in the editor —
+give it a name + URL). It renders full-screen on the panel; the knob scrolls it
+(inner scroll panels included), a tap is a click, and double-clicking the knob
+returns to the page selector. Sessions persist across restarts.
+
+**Auth** is set per page in the editor — needed because the panel has no keyboard:
+
+| Type | For |
+|---|---|
+| **None** | public / anonymous pages (Flipboard, anonymous Grafana) |
+| **Home Assistant token** | HA — paste a Long-Lived Access Token; the panel seeds it and loads signed-in |
+| **HTTP Basic Auth** | sites behind a real `401` / `WWW-Authenticate: Basic` challenge (e.g. nginx `auth_basic`) |
+| **Custom header(s)** | bearer tokens, Grafana service accounts, Cloudflare Access (`CF-Access-Client-Id` / `-Secret`) |
+
+**Form-login apps** — which redirect to a `/login` *page* instead of issuing a
+`401` — aren't covered by Basic Auth. Either have the app accept a **bearer token**
+and use Custom header, or, since the panel runs on your PC, click the login form
+with your PC mouse/keyboard once: the persistent session keeps you signed in.
+
 ## Layout
 
 ```
@@ -56,19 +77,22 @@ app/                      the Electron launcher + PC grid editor     [MIT]
 
 ## Build & run (Windows)
 
-The native modules (`node-hid`, `robotjs`) must be compiled for the Electron ABI
-this app uses (**Electron 23**). On a clean machine:
+The native modules (`node-hid`, `robotjs`) must be built for this app's Electron
+ABI (**Electron 23**), *not* your host Node. A plain `npm install` fails —
+`robotjs` (0.6.0) can't compile against modern Node. So install without scripts,
+fetch the Electron binary, then rebuild the natives against Electron 23:
 
 ```powershell
-npm install
-npm run rebuild      # electron-rebuild -v 23.0.0 -f  (rebuilds node-hid + robotjs for Electron 23)
+npm install --ignore-scripts            # packages on disk, no native build
+node node_modules/electron/install.js   # fetch the Electron 23 binary
+npm run rebuild                          # electron-rebuild -v 23.0.0 -f  (node-hid + robotjs)
 npm start
 ```
 
-Building the native modules on modern Windows needs Visual Studio 2022 Build
-Tools (Desktop C++ workload) and a Python with `distutils` (`pip install
-"setuptools<81"` if you're on Python 3.12+). Set `GYP_MSVS_VERSION=2022` if
-node-gyp picks the wrong toolset.
+Building the natives on modern Windows needs Visual Studio 2022 Build Tools
+(Desktop C++ workload) and a Python with `distutils` (`pip install
+"setuptools<81"` on Python 3.12+). Set `GYP_MSVS_VERSION=2022` if node-gyp picks
+the wrong toolset.
 
 Plug in the DK-QUAKE before `npm start`. The launcher finds the panel display,
 places a borderless window on it, wakes the backlight, and starts listening for
