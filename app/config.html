@@ -188,14 +188,12 @@
       d.style.gridRow = `${r + 1} / span ${h}`;
       d.innerHTML = empty ? '+' : `${iconHtml(t, 'cell')}<div class="lb">${esc(t.label)}</div>`;
       d.onclick = e => { if (e.shiftKey && ti >= 0) selEnd = i; else { ti = i; selEnd = -1; } render(); };
-      if (w === 1 && h === 1) {                                   // 1×1 tiles can be dragged to rearrange (swap)
-        d.draggable = true;
-        d.ondragstart = e => { dragFrom = i; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(i)); };
-        d.ondragover = e => { if (dragFrom >= 0 && dragFrom !== i) { e.preventDefault(); d.classList.add('dragover'); } };
-        d.ondragleave = () => d.classList.remove('dragover');
-        d.ondrop = e => { e.preventDefault(); d.classList.remove('dragover'); if (dragFrom >= 0 && dragFrom !== i) swapTiles(g, dragFrom, i); dragFrom = -1; };
-        d.ondragend = () => { dragFrom = -1; };
-      }
+      d.draggable = true;                                          // drag to rearrange — 1×1 tiles swap, merged blocks move
+      d.ondragstart = e => { dragFrom = i; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(i)); };
+      d.ondragover = e => { if (dragFrom >= 0 && dragFrom !== i) { e.preventDefault(); d.classList.add('dragover'); } };
+      d.ondragleave = () => d.classList.remove('dragover');
+      d.ondrop = e => { e.preventDefault(); d.classList.remove('dragover'); handleDrop(g, dragFrom, i); dragFrom = -1; };
+      d.ondragend = () => { dragFrom = -1; };
       el.appendChild(d);
     });
     renderMergeBar(g);
@@ -244,6 +242,37 @@
   }
   function unmergeTile(g) { flattenAt(g, ti); selEnd = -1; render(); markDirty(); }
   function swapTiles(g, a, b) { const t = g.tiles[a]; g.tiles[a] = g.tiles[b]; g.tiles[b] = t; ti = b; selEnd = -1; render(); markDirty(); }
+  function tileFields(t) { return { label: (t && t.label) || '', icon: (t && t.icon) || '', type: (t && t.type) || '', value: (t && t.value) || '', iconType: (t && t.iconType) || 'emoji', iconImage: (t && t.iconImage) || '' }; }
+  function handleDrop(g, from, to) {
+    if (from < 0 || from === to) return;
+    const sf = g.tiles[from], sw = (sf && sf.w) || 1, sh = (sf && sf.h) || 1;
+    const tt = g.tiles[to], tw = (tt && tt.w) || 1, th = (tt && tt.h) || 1;
+    if (sw > 1 || sh > 1) moveBlock(g, from, to % g.cols, Math.floor(to / g.cols));   // move a merged block
+    else if (tw === 1 && th === 1) swapTiles(g, from, to);                            // swap two 1×1 tiles
+    // (dropping a 1×1 onto a merged block is ignored for now)
+  }
+  // Move a merged block so its top-left lands at (dc,dr); tiles it lands on slide into the cells it vacated.
+  function moveBlock(g, ownerIdx, dc, dr) {
+    const w0 = (g.tiles[ownerIdx].w) || 1, h0 = (g.tiles[ownerIdx].h) || 1;
+    dc = Math.max(0, Math.min(dc, g.cols - w0));
+    dr = Math.max(0, Math.min(dr, g.rows - h0));
+    const sc = ownerIdx % g.cols, sr = Math.floor(ownerIdx / g.cols);
+    if (sc === dc && sr === dr) return;
+    const at = (c, r) => r * g.cols + c;
+    const blockContent = tileFields(g.tiles[ownerIdx]);
+    const srcSet = new Set(), dstSet = new Set();
+    for (let or = 0; or < h0; or++) for (let oc = 0; oc < w0; oc++) { srcSet.add(at(sc + oc, sr + or)); dstSet.add(at(dc + oc, dr + or)); }
+    for (const di of dstSet) if (!srcSet.has(di)) flattenAt(g, di);                     // unmerge anything under the destination
+    const displaced = [];
+    for (const di of dstSet) if (!srcSet.has(di)) displaced.push(tileFields(g.tiles[di]));
+    for (const si of srcSet) g.tiles[si] = blankTile();                                 // lift the block out
+    const freed = [];
+    for (const si of srcSet) if (!dstSet.has(si)) freed.push(si);
+    freed.forEach((fi, k) => { if (displaced[k]) g.tiles[fi] = displaced[k]; });         // displaced tiles slide into the vacated cells
+    const newOwner = at(dc, dr);
+    for (const di of dstSet) g.tiles[di] = (di === newOwner) ? Object.assign(blockContent, { w: w0, h: h0 }) : { cover: newOwner };
+    ti = newOwner; selEnd = -1; render(); markDirty();
+  }
 
   // ---- tile form (left) ----
   function renderForm() {
