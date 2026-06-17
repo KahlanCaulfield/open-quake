@@ -12,6 +12,7 @@
     --card-bottom: #141821;
     --digit: #aef4ff;
     --digit-glow: 0 0 18px rgba(120, 230, 255, .45);
+    --fg: #aef4ff;                /* text on the page background (corner, colon) */
     --split: rgba(0, 0, 0, .55);
     --label: #6f8298;
     --accent: #7CFFB2;
@@ -23,6 +24,7 @@
     --card-bottom: #e4ddcf;
     --digit: #1b1b1b;
     --digit-glow: none;
+    --fg: #d9cbb0;                /* light cream so corner/colon are visible on the dark classic bg */
     --split: rgba(0, 0, 0, .28);
     --label: #b9a98c;
     --accent: #c8a96b;
@@ -44,7 +46,7 @@
   .group { display: flex; gap: clamp(4px, 0.8vw, 16px); }
   .sep { align-self: center; display: flex; flex-direction: column; gap: 16vh; }
   .sep i { width: clamp(8px, 1.4vh, 18px); height: clamp(8px, 1.4vh, 18px); border-radius: 50%;
-    background: var(--digit); box-shadow: var(--digit-glow); display: block; }
+    background: var(--fg); box-shadow: var(--digit-glow); display: block; }
 
   .card {
     position: relative;
@@ -79,11 +81,11 @@
   /* ---- single wide hour card (12h) + AM/PM badge on it ---- */
   .card.wide { width: var(--cw2); }
   .card .ampm { position: absolute; top: 6%; left: 8%; z-index: 5; pointer-events: none;
-    font-size: clamp(10px, 3.4vh, 40px); font-weight: 800; letter-spacing: .06em; color: var(--accent); text-shadow: var(--digit-glow); }
+    font-size: clamp(20px, 6.8vh, 80px); font-weight: 800; letter-spacing: .06em; color: var(--digit); text-shadow: var(--digit-glow); }
   /* ---- date / weekday, top-right corner ---- */
   #corner { position: fixed; top: clamp(8px, 3vh, 30px); right: clamp(12px, 3vw, 44px); text-align: right; line-height: 1.12; }
-  #corner .cdate { display: block; font-size: clamp(13px, 4vh, 48px); color: var(--digit); text-shadow: var(--digit-glow); font-weight: 600; letter-spacing: .04em; }
-  #corner .cdow  { display: block; font-size: clamp(12px, 3.4vh, 40px); color: var(--digit); text-shadow: var(--digit-glow); font-weight: 700; letter-spacing: .18em; }
+  #corner .cdate { display: block; font-size: clamp(13px, 4vh, 48px); color: var(--fg); text-shadow: var(--digit-glow); font-weight: 600; letter-spacing: .04em; }
+  #corner .cdow  { display: block; font-size: clamp(12px, 3.4vh, 40px); color: var(--fg); text-shadow: var(--digit-glow); font-weight: 700; letter-spacing: .18em; }
 
   /* ---- settings ---- */
   #gear { position: fixed; top: 14px; right: 16px; width: 40px; height: 40px; border-radius: 10px;
@@ -153,7 +155,7 @@
     const ch = settings.seconds ? 50 : 64;          // card height in vh
     r.setProperty('--ch', ch + 'vh');
     r.setProperty('--cw', (ch * 0.66) + 'vh');
-    r.setProperty('--cw2', (ch * 1.3) + 'vh');     // wider single hour card (12h)
+    r.setProperty('--cw2', (ch * 1.04) + 'vh');    // single hour card (12h), ~20% narrower
     r.setProperty('--fs', (ch * 0.92) + 'vh');
   }
 
