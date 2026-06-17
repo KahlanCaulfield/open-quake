@@ -15,23 +15,24 @@ It gives you:
   icons to tiles, with a Browse… picker. Auto-saves and pushes live to the panel.
 
 > **Status:** early. Touch, knob, multi-grid, and the editor are working and
-> validated against real hardware. Rendering to the panel currently uses the
-> device as a normal USB monitor (Windows sees it as a 480×1920 / 1920×480
-> display); pushing frames over the HID resource channel is not implemented.
+> validated against real hardware. The panel is driven as a normal external
+> monitor (Windows sees a 480×1920 / 1920×480 display); pushing frames over the
+> HID resource channel is not implemented.
 
 ## Hardware
 
-The DK-QUAKE / ARIS-68 is a composite USB device:
+The DK-QUAKE's screen is a standard external monitor (HDMI or USB-C DisplayPort
+alt-mode) recognized by Windows as a 480×1920 portrait display. A separate USB
+link handles touch and control/knob/mic interfaces. Video travels over the
+display cable; open-quake renders an Electron window onto that monitor, exactly
+as DK-Suite did. Unplug the display cable and the panel goes dark, but the USB
+side keeps working.
 
-- a **USB monitor** (480×1920 portrait as Windows sees it; physically 1920×480
-  landscape), and
-- **two HID interfaces** — one control interface (knob, mic/state, firmware,
-  keep-alive) and one multi-touch interface.
-
-The panel ships dark and idle-blanks; the driver wakes it and sends a periodic
-keep-alive so it stays on. The on-board mic enumerates as a standard
-**"5- USB PnP Audio Device"** — any app can read it directly; `open-quake`
-doesn't wrap it.
+The USB side is two HID interfaces: a control interface (knob, mic/state,
+firmware, keep-alive) and a multi-touch interface. The panel ships dark and
+idle-blanks; the driver wakes it and sends a periodic keep-alive so it stays on.
+The on-board mic enumerates as a standard **"5- USB PnP Audio Device"** — any app
+can read it directly; `open-quake` doesn't wrap it.
 
 ## Layout
 

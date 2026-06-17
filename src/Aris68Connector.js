@@ -8,8 +8,9 @@
  *
  * Pure node-hid — no Electron dependency. Handles HID I/O for the two interfaces, keeps the
  * panel backlight awake, parses incoming reports into events, and exposes outgoing commands.
- * The DISPLAY itself is a USB monitor (480x1920 portrait / 1920x480 landscape) — render to it
- * in your host app; this driver only does the HID side + activation/keep-alive.
+ * The DISPLAY is a standard external monitor fed over a display cable (HDMI or USB-C
+ * DP alt-mode; 480x1920 portrait / 1920x480 landscape) — render to it in your host app;
+ * this driver only does the USB HID side (touch/knob/control) + activation/keep-alive.
  *
  * Events:
  *   'touch'  -> [{ action(1=down,0=up), x(0..1920), y(0..480, ORIGIN BOTTOM-LEFT) }, ...]
