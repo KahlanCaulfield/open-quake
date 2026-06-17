@@ -1,6 +1,6 @@
 'use strict';
 // DK-QUAKE launcher: multi-grid panel + PC config editor, on the open Aris68Connector driver.
-const { app, BrowserWindow, screen, powerSaveBlocker, ipcMain, shell, dialog, session } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, screen, powerSaveBlocker, ipcMain, shell, dialog, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { exec } = require('child_process');
@@ -14,15 +14,22 @@ const CONFIG_PATH = path.join(USER_DIR, 'config.json');                  // writ
 const DEFAULT_CONFIG_PATH = path.join(__dirname, 'config.default.json'); // bundled (read-only)
 const LEGACY_CONFIG_PATH = path.join(__dirname, 'config.json');          // pre-userData dev location, migrated once
 const APPS_DIR = path.join(__dirname, '..', 'apps').replace('app.asar', 'app.asar.unpacked'); // unpacked when packaged
+const LED_DEFAULT = { effect: 1, brightness: 200, speed: 128, hue: 128, sat: 255 }; // ring lighting fallback (effect 1 = Solid Color)
+const DEFAULT_SETTINGS = { launchMode: 'editor', micOnLaunch: false, lighting: Object.assign({}, LED_DEFAULT) };
+let firstRun = false;     // set by loadConfig when there was no prior config (fresh install)
+let micState = false;     // current device mic state (LED follows it)
+let lastRingEffect = LED_DEFAULT.effect; // remembered so the tray on/off toggle can restore the prior effect
 let config = loadConfig();
-let panelWin = null, configWin = null;
+let panelWin = null, configWin = null, tray = null;
 const dev = new Aris68Connector({ hid: HID });
+function appSettings() { return Object.assign({}, DEFAULT_SETTINGS, config.settings || {}); }
 
 // User config lives in the OS user-data dir (writable even inside a packaged app). On first run it's
 // seeded from a previous dev config (app/config.json) if present, otherwise the bundled default.
 function loadConfig() {
   try {
     if (!fs.existsSync(CONFIG_PATH)) {
+      firstRun = true;
       fs.mkdirSync(USER_DIR, { recursive: true });
       const seed = fs.existsSync(LEGACY_CONFIG_PATH) ? LEGACY_CONFIG_PATH : DEFAULT_CONFIG_PATH;
       if (fs.existsSync(seed)) fs.copyFileSync(seed, CONFIG_PATH);
@@ -115,7 +122,10 @@ function runAction(a) {
       case 'app': exec(`start "" "${a.value}"`, { windowsHide: true }); break;
       case 'cmd': exec(a.value, { windowsHide: true }); break;
       case 'open': shell.openPath(a.value); break;
-      case 'system': if (a.value === 'lock') exec('rundll32.exe user32.dll,LockWorkStation'); break;
+      case 'system':
+        if (a.value === 'lock') exec('rundll32.exe user32.dll,LockWorkStation');
+        else if (a.value === 'mic') toggleMic();
+        break;
     }
   } catch (e) { console.log('action error:', e.message); }
 }
@@ -154,8 +164,55 @@ function openConfigWindow() {
   configWin.on('closed', () => { configWin = null; });
 }
 
+// ---- device settings (knob RGB ring, mic) ----
+function lighting() { return Object.assign({}, LED_DEFAULT, (config.settings || {}).lighting || {}); }
+function applyKnobSettings() {
+  const L = lighting();
+  try { dev.setKnobLed(true); } catch (e) {}              // keep the ring from idle-sleeping (effect 0 = visually off)
+  try { dev.setLedEffect(L.effect & 0xFF); } catch (e) {}
+  try { dev.setLedBrightness(L.brightness & 0xFF); } catch (e) {}
+  try { dev.setLedSpeed(L.speed & 0xFF); } catch (e) {}
+  try { dev.setLedColor(L.hue & 0xFF, L.sat & 0xFF); } catch (e) {}
+  if (L.effect) lastRingEffect = L.effect;
+}
+function applyMic(on) { try { dev.setMic(on); } catch (e) {} micState = !!on; refreshTray(); }
+function toggleMic() { applyMic(!micState); }
+function toggleKnobRing() {
+  if (!config.settings) config.settings = {};
+  const L = config.settings.lighting = lighting();
+  if (L.effect === 0) L.effect = lastRingEffect || 1;     // turn back on -> restore the last effect
+  else { lastRingEffect = L.effect; L.effect = 0; }        // turn off -> All Off
+  saveConfig(); applyKnobSettings(); refreshTray();
+}
+
+// Tray icon — the app's desktop presence (the panel window deliberately skips the taskbar).
+function trayMenu() {
+  const ringOn = lighting().effect !== 0;
+  return Menu.buildFromTemplate([
+    { label: 'open-quake', enabled: false },
+    { type: 'separator' },
+    { label: 'Open editor', click: () => openConfigWindow() },
+    { label: micState ? 'Mic: on — click to disable' : 'Mic: off — click to enable', click: () => toggleMic() },
+    { label: ringOn ? 'Knob ring: on — click to turn off' : 'Knob ring: off — click to turn on', click: () => toggleKnobRing() },
+    { label: 'Re-place panel on device', click: () => { try { dev.screenOn(); } catch (e) {} placePanel(); } },
+    { type: 'separator' },
+    { label: 'Quit', click: () => { try { dev.stop(); } catch (e) {} app.quit(); } },
+  ]);
+}
+function refreshTray() { if (tray) tray.setContextMenu(trayMenu()); }
+function createTray() {
+  if (tray) return;
+  let img;
+  try { img = nativeImage.createFromBuffer(fs.readFileSync(path.join(__dirname, 'icon.png'))); } catch (e) { img = nativeImage.createEmpty(); }
+  tray = new Tray(img);
+  tray.setToolTip('open-quake');
+  refreshTray();
+  tray.on('click', () => openConfigWindow());
+}
+
 app.whenReady().then(() => {
   try { powerSaveBlocker.start('prevent-display-sleep'); } catch (e) {}
+  createTray();
 
   // Dashboard auth injection for the webview session. The active page's auth config drives it:
   //  - 'header'  -> add custom header(s) to requests to the dashboard host (bearer / Cloudflare Access / …)
@@ -191,7 +248,7 @@ app.whenReady().then(() => {
     config = newCfg;
     if (config.grids.some(g => g.id === active)) config.activeGridId = active;
     else if (!config.grids.some(g => g.id === config.activeGridId)) config.activeGridId = (config.grids[0] || {}).id || null;
-    saveConfig(); pushToPanel();
+    saveConfig(); pushToPanel(); applyKnobSettings(); refreshTray();
   });
   ipcMain.handle('pickProgram', async () => {
     const r = await dialog.showOpenDialog(configWin, { properties: ['openFile'], filters: [{ name: 'Programs', extensions: ['exe', 'lnk', 'bat', 'cmd', 'com'] }, { name: 'All Files', extensions: ['*'] }] });
@@ -203,10 +260,50 @@ app.whenReady().then(() => {
   });
   ipcMain.handle('getAppIcon', (e, value) => getAppIconDataUrl(value));
 
+  // Knob RGB ring (QMK VIA). The editor's Settings page reads the device's current lighting, then
+  // applies each change live; "Save to device" persists it to the device's own flash.
+  ipcMain.handle('getLighting', async () => {
+    let cur = null;
+    try { cur = await dev.getLighting(); } catch (e) {}
+    return Object.assign({}, lighting(), cur && Object.keys(cur).length ? cur : {});
+  });
+  ipcMain.on('setLighting', (e, L) => {
+    if (!L) return;
+    if (!config.settings) config.settings = {};
+    config.settings.lighting = Object.assign({}, lighting(), L);
+    if (config.settings.lighting.effect) lastRingEffect = config.settings.lighting.effect;
+    saveConfig();
+    try {
+      if (L.effect != null) dev.setLedEffect(L.effect & 0xFF);
+      if (L.brightness != null) dev.setLedBrightness(L.brightness & 0xFF);
+      if (L.speed != null) dev.setLedSpeed(L.speed & 0xFF);
+      if (L.hue != null && L.sat != null) dev.setLedColor(L.hue & 0xFF, L.sat & 0xFF);
+    } catch (er) {}
+    refreshTray();
+  });
+  ipcMain.handle('saveLightingToDevice', () => { try { return dev.saveLighting(); } catch (e) { return false; } });
+
   placePanel();
+  const ls = appSettings();
+  if (firstRun || ls.launchMode === 'editor') openConfigWindow();
+  else if (ls.launchMode === 'minimized') { openConfigWindow(); if (configWin && !configWin.isDestroyed()) configWin.minimize(); }
+  // 'tray' -> stay quiet (tray + panel only)
+
   dev.on('touch', pts => { if (panelWin && !panelWin.isDestroyed()) panelWin.webContents.send('touch', pts); });
   dev.on('knob', k => { if (panelWin && !panelWin.isDestroyed()) panelWin.webContents.send('knob', k); }); // panel owns knob logic
-  dev.on('connect', i => console.log('connect:', i.iface));
+  dev.on('connect', async i => {
+    console.log('connect:', i.iface);
+    if (i.iface !== 'control') return;
+    // First run: seed lighting from the device so we never change the ring unasked; otherwise the app's config wins.
+    if (!config.settings || !config.settings.lighting) {
+      try {
+        const cur = await dev.getLighting();
+        if (cur && Object.keys(cur).length) { if (!config.settings) config.settings = {}; config.settings.lighting = Object.assign({}, LED_DEFAULT, cur); saveConfig(); }
+      } catch (e) {}
+    }
+    applyKnobSettings();
+    applyMic(appSettings().micOnLaunch);
+  });
   dev.on('error', e => console.log('dev error:', e.message));
   dev.start();
 

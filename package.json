@@ -50,7 +50,8 @@
       "target": [
         "portable",
         "nsis"
-      ]
+      ],
+      "icon": "app/icon.png"
     },
     "portable": {
       "artifactName": "open-quake-${version}-portable.${ext}"

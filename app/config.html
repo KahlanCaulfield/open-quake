@@ -69,6 +69,7 @@
   <header>
     <h1>open-quake Editor</h1>
     <span class="sub">edit, then Save to apply to the panel</span>
+    <button id="settingsBtn" style="margin-left:auto">⚙ Settings</button>
   </header>
   <div class="main">
     <div class="col grids">
@@ -94,7 +95,27 @@
   const { ipcRenderer } = require('electron');
   const { pathToFileURL } = require('url');
   let config = { activeGridId: null, grids: [] };
-  let gi = 0, ti = -1, selEnd = -1, dragFrom = -1, dirty = false, appDefs = [];
+  let gi = 0, ti = -1, selEnd = -1, dragFrom = -1, dirty = false, appDefs = [], view = 'pages', ledState = null;
+  // QMK RGB-Matrix effect names — index is the value written to the device (0 = ring off).
+  const LED_EFFECTS = ['All Off (ring off)', 'Solid Color', 'Alphas Mods', 'Gradient Up/Down', 'Gradient Left/Right', 'Breathing', 'Band Sat.', 'Band Val.', 'Pinwheel Sat.', 'Pinwheel Val.', 'Spiral Sat.', 'Spiral Val.', 'Cycle All', 'Cycle Left/Right', 'Cycle Up/Down', 'Rainbow Moving Chevron', 'Cycle Out/In', 'Cycle Out/In Dual', 'Cycle Pinwheel', 'Cycle Spiral', 'Dual Beacon', 'Rainbow Beacon', 'Rainbow Pinwheels', 'Raindrops', 'Jellybean Raindrops', 'Hue Breathing', 'Hue Pendulum', 'Hue Wave', 'Pixel Rain', 'Pixel Flow', 'Pixel Fractal', 'Typing Heatmap', 'Digital Rain', 'Solid Reactive Simple', 'Solid Reactive', 'Solid Reactive Wide', 'Solid Reactive Multi Wide', 'Solid Reactive Cross', 'Solid Reactive Multi Cross', 'Solid Reactive Nexus', 'Solid Reactive Multi Nexus', 'Splash', 'Multi Splash', 'Solid Splash', 'Solid Multi Splash'];
+  const LED_DEFAULT = { effect: 1, brightness: 200, speed: 128, hue: 128, sat: 255 };
+  // HSV (hue/sat 0-255, value fixed full) <-> #rrggbb — matches DK-Suite's conversion so the picker agrees with the ring.
+  function hsvToHex(hue255, sat255) {
+    const h = ((hue255 || 0) / 255) * 360, s = (sat255 || 0) / 255, v = 1;
+    const c = v * s, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), m = v - c;
+    let r = 0, g = 0, b = 0;
+    if (h < 60) [r, g, b] = [c, x, 0]; else if (h < 120) [r, g, b] = [x, c, 0]; else if (h < 180) [r, g, b] = [0, c, x];
+    else if (h < 240) [r, g, b] = [0, x, c]; else if (h < 300) [r, g, b] = [x, 0, c]; else [r, g, b] = [c, 0, x];
+    const hx = n => Math.round((n + m) * 255).toString(16).padStart(2, '0');
+    return '#' + hx(r) + hx(g) + hx(b);
+  }
+  function hexToHsv(hex) {
+    const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || ''); if (!m) return { hue: 0, sat: 0 };
+    const r = parseInt(m[1], 16) / 255, g = parseInt(m[2], 16) / 255, b = parseInt(m[3], 16) / 255;
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn; let h = 0;
+    if (d) { if (mx === r) h = ((g - b) / d) % 6; else if (mx === g) h = (b - r) / d + 2; else h = (r - g) / d + 4; h *= 60; if (h < 0) h += 360; }
+    return { hue: Math.round((h / 360) * 255), sat: Math.round((mx ? d / mx : 0) * 255) };
+  }
   const appIconCache = {};   // app value -> dataURL | false (failed) | null (in-flight)
   const TYPES = [['', 'Empty'], ['app', 'App / Program'], ['url', 'Website (URL)'], ['cmd', 'Shell command'], ['open', 'Open file/folder'], ['system', 'System (lock/config)']];
   const uid = () => 'g' + Math.random().toString(36).slice(2, 8);
@@ -140,7 +161,7 @@
       d.className = 'gridrow' + (i === gi ? ' active' : '');
       const tag = g.kind === 'web' ? '🌐' : g.kind === 'app' ? '🧩' : '▦';
       d.innerHTML = `<span>${tag} ${esc(g.name) || '(unnamed)'}</span>`;
-      d.onclick = () => { gi = i; ti = -1; selEnd = -1; render(); };
+      d.onclick = () => { view = 'pages'; gi = i; ti = -1; selEnd = -1; render(); };
       el.appendChild(d);
     });
   }
@@ -345,12 +366,12 @@
     else el.innerHTML = t.icon ? `<span class="em">${t.icon}</span>` : `<span class="none">no emoji</span>`;
   }
 
-  function valuePlaceholder(type) { return type === 'url' ? 'https://…' : type === 'app' ? 'chrome  (or full path)' : type === 'cmd' ? 'start ms-settings:' : type === 'system' ? 'lock  |  config' : ''; }
+  function valuePlaceholder(type) { return type === 'url' ? 'https://…' : type === 'app' ? 'chrome  (or full path)' : type === 'cmd' ? 'start ms-settings:' : type === 'system' ? 'lock  |  config  |  mic' : ''; }
   function typeHint(type) {
     if (type === 'app') return 'Program name on PATH (chrome, notepad…) or a full .exe path via Browse.';
     if (type === 'url') return 'Opens in your default browser.';
     if (type === 'cmd') return 'Runs a shell command (advanced).';
-    if (type === 'system') return 'lock = lock screen · config = open this editor.';
+    if (type === 'system') return 'lock = lock screen · config = open this editor · mic = toggle the device mic.';
     return '';
   }
 
@@ -473,13 +494,81 @@
 
   function render() {
     renderGrids();
+    if (view === 'settings') { renderSettings(); return; }
     const g = curGrid();
     if (g && g.kind === 'web') renderDashboard();
     else if (g && g.kind === 'app') renderAppPage();
     else { renderMeta(); renderTiles(); renderForm(); }
   }
 
+  // ---- settings page ----
+  const DEFAULT_SETTINGS = { launchMode: 'editor', micOnLaunch: false };
+  function appSettings() { return Object.assign({}, DEFAULT_SETTINGS, config.settings || {}); }
+  function renderSettings() {
+    ['tilegrid', 'mergebar', 'tileform', 'iconpane'].forEach(id => { const e = document.getElementById(id); if (e) e.innerHTML = ''; });
+    const s = appSettings();
+    // ledState = the device's live lighting (loaded when the page opens); fall back to saved config / defaults.
+    const L = Object.assign({}, LED_DEFAULT, (config.settings || {}).lighting || {}, ledState || {});
+    const effOpts = LED_EFFECTS.map((n, i) => `<option value="${i}">${esc(n)}</option>`).join('');
+    const el = document.getElementById('gridmeta');
+    el.innerHTML = `
+      <p class="sectitle">Settings</p>
+      <div class="row"><label>On launch</label>
+        <select id="sLaunch" style="width:230px">
+          <option value="editor">Open the editor window</option>
+          <option value="minimized">Open minimized to taskbar</option>
+          <option value="tray">Tray only (no window)</option>
+        </select></div>
+      <p class="hint">The panel always activates on launch — this only controls the PC-side editor window. Tray-only hides it; reopen from the tray icon.</p>
+
+      <p class="sectitle" style="margin-top:22px">Knob ring</p>
+      <div class="row"><label>Effect</label>
+        <select id="sEffect" style="width:230px">${effOpts}</select></div>
+      <div class="row"><label>Color</label>
+        <input type="color" id="sColor" value="${hsvToHex(L.hue, L.sat)}" style="width:54px;height:30px;padding:2px">
+        <span id="sColorVal" class="hint" style="margin:0 0 0 10px">H${L.hue} S${L.sat}</span></div>
+      <div class="row"><label>Brightness</label>
+        <input type="range" id="sBright" min="0" max="255" value="${L.brightness}" style="width:200px">
+        <span id="sBrightVal" class="hint" style="margin:0 0 0 10px">${L.brightness}</span></div>
+      <div class="row"><label>Effect speed</label>
+        <input type="range" id="sSpeed" min="0" max="255" value="${L.speed}" style="width:200px">
+        <span id="sSpeedVal" class="hint" style="margin:0 0 0 10px">${L.speed}</span></div>
+      <p class="hint">Changes apply to the ring instantly. <b>Save to device</b> writes them to the device's own memory so they survive a power-cycle. (Effect “All Off” turns the ring off. Animated effects use the color/speed; solid effects ignore speed.)</p>
+      <div class="row" style="margin-top:6px"><button id="sSaveLed">Save to device</button><span id="sSaveLedMsg" class="hint" style="margin:0 0 0 10px"></span></div>
+
+      <p class="sectitle" style="margin-top:22px">Microphone</p>
+      <div class="row"><label>At launch</label>
+        <input type="checkbox" id="sMic" style="width:auto;flex:none"><span class="hint" style="margin:0 0 0 8px">enable the device mic when open-quake starts</span></div>
+      <p class="hint">The mic LED and the mic audio are one hardware switch — the light is on whenever the mic is enabled, off when it isn't. Toggle it any time from the tray menu or a “System → mic” tile.</p>
+
+      <div class="row" style="margin-top:22px"><button id="sBack">← Back to pages</button></div>`;
+    document.getElementById('sLaunch').value = s.launchMode;
+    document.getElementById('sEffect').value = String(L.effect);
+    document.getElementById('sMic').checked = !!s.micOnLaunch;
+    const setS = (k, v) => { if (!config.settings) config.settings = {}; config.settings[k] = v; markDirty(); };
+    // Lighting writes go straight to the device (and persist in config) via the main process — no Save needed.
+    const live = patch => { Object.assign(L, patch); if (!config.settings) config.settings = {}; config.settings.lighting = Object.assign({}, L); ipcRenderer.send('setLighting', patch); };
+    document.getElementById('sLaunch').onchange = e => setS('launchMode', e.target.value);
+    document.getElementById('sMic').onchange = e => setS('micOnLaunch', e.target.checked);
+    document.getElementById('sEffect').onchange = e => live({ effect: parseInt(e.target.value, 10) });
+    const cv = document.getElementById('sColorVal');
+    document.getElementById('sColor').onchange = e => { const { hue, sat } = hexToHsv(e.target.value); cv.textContent = `H${hue} S${sat}`; live({ hue, sat }); };
+    const bv = document.getElementById('sBrightVal');
+    document.getElementById('sBright').oninput = e => { bv.textContent = e.target.value; };
+    document.getElementById('sBright').onchange = e => live({ brightness: parseInt(e.target.value, 10) });
+    const sv = document.getElementById('sSpeedVal');
+    document.getElementById('sSpeed').oninput = e => { sv.textContent = e.target.value; };
+    document.getElementById('sSpeed').onchange = e => live({ speed: parseInt(e.target.value, 10) });
+    document.getElementById('sSaveLed').onclick = async () => {
+      const msg = document.getElementById('sSaveLedMsg'); msg.textContent = 'saving…';
+      const ok = await ipcRenderer.invoke('saveLightingToDevice');
+      msg.textContent = ok ? 'saved to device ✓' : 'save failed';
+    };
+    document.getElementById('sBack').onclick = () => { view = 'pages'; render(); };
+  }
+
   function addPage(kind) {
+    view = 'pages';
     let g;
     if (kind === 'web') g = { id: uid(), name: 'Dashboard', kind: 'web', url: '', auth: { type: 'none' } };
     else if (kind === 'app') g = { id: uid(), name: 'App', kind: 'app', app: '', options: {} };
@@ -490,6 +579,11 @@
   document.getElementById('addDash').onclick = () => addPage('web');
   document.getElementById('addApp').onclick = () => addPage('app');
   document.getElementById('saveBtn').onclick = doSave;
+  document.getElementById('settingsBtn').onclick = async () => {
+    view = view === 'settings' ? 'pages' : 'settings';
+    if (view === 'settings') { ledState = null; try { ledState = await ipcRenderer.invoke('getLighting'); } catch (e) {} }
+    render();
+  };
   window.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); if (dirty) doSave(); } });
 
   (async () => {

@@ -7,7 +7,7 @@ software running.
 
 ![open-quake on the DK-QUAKE](docs/showcase.png)
 
-*From top: the grid launcher · the flip-clock app · web dashboards — [Flipoff](https://github.com/TeeJS/flipoff) and [Home Assistant](https://www.home-assistant.io).*
+*From top: the grid launcher · a merged-tile Media grid · the flip-clock app · a [Windy](https://www.windy.com) weather map and a [Home Assistant](https://www.home-assistant.io) dashboard — each with the knob's RGB ring lit a different color.*
 
 ### **[⬇ Download for Windows](https://github.com/TeeJS/open-quake/releases/latest)** &nbsp;·&nbsp; or build from source (below)
 
@@ -23,16 +23,20 @@ It gives you:
   header(s) (bearer / Cloudflare Access) — set per page in the editor.
 - **Knob control** — rotate for volume (or to scroll the current dashboard),
   single-click to mute, **double-click to open the page selector** (rotate to
-  pick a page by name, press to switch).
+  pick a page by name, press to switch). The **RGB ring** around the knob is
+  configurable — color, effect, brightness, and speed (see [Settings](#settings--knob-lighting)).
 - **A PC-side editor** — build pages of tiles (each opens an app / URL / shell
   command / file or a system action) with an emoji, app, or image icon; **merge**
   adjacent tiles into one larger button; **drag-and-drop** to rearrange; then
   **Save** to push to the panel.
+- **Settings** — choose how the app starts (editor window, minimized, or tray-only),
+  toggle the on-board mic, and tune the knob's ring lighting — from the editor's
+  **⚙ Settings** page. open-quake also lives in the system tray for quick toggles.
 
-> **Status:** early. Touch, knob, grids, web dashboards, and the editor are
-> working and validated against real hardware. The panel is driven as a normal external
-> monitor (Windows sees a 480×1920 / 1920×480 display); pushing frames over the
-> HID resource channel is not implemented.
+> **Status:** early. Touch, knob (incl. the RGB ring), grids, merged buttons, web
+> dashboards, the on-board mic, and the editor are working and validated against real
+> hardware. The panel is driven as a normal external monitor (Windows sees a 480×1920 /
+> 1920×480 display); pushing frames over the HID resource channel is not implemented.
 
 ## Download
 
@@ -65,7 +69,9 @@ can read it directly; `open-quake` doesn't wrap it.
 A page can be a web view instead of a tile grid (**+ Dashboard** in the editor —
 give it a name + URL). It renders full-screen on the panel; the knob scrolls it
 (inner scroll panels included), a tap is a click, and double-clicking the knob
-returns to the page selector. Sessions persist across restarts.
+returns to the page selector. Sessions persist across restarts. open-quake ships
+with a public **[Windy](https://www.windy.com) weather map** as a ready-made
+dashboard example.
 
 **Auth** is set per page in the editor — needed because the panel has no keyboard:
 
@@ -86,6 +92,8 @@ with your PC mouse/keyboard once: the persistent session keeps you signed in.
 Open it from the panel's **Edit Grids** tile (it appears on your PC). The left
 list holds your **pages** — each is a tile **Grid**, a web **Dashboard**, or a bundled **App**.
 
+![The grid editor — the Default page](docs/shots/editor-default.png)
+
 On a grid page you can:
 - **Edit tiles** — label, action (app / URL / shell command / open file / system),
   and icon (emoji, the program's own icon, or a custom image).
@@ -94,6 +102,11 @@ On a grid page you can:
 - **Rearrange** — **drag-and-drop** to swap tiles; drag a merged block to move it
   (tiles it lands on slide into the freed cells).
 - **Resize** the grid (columns × rows).
+
+The shipped **Media** grid is a 10×4 example built around merged buttons — a 4×4
+hero plus a couple of 2×2 tiles:
+
+![The Media grid in the editor, with merged buttons](docs/shots/editor-media.png)
 
 Edits apply on **Save** — nothing changes on the panel until then. Which page is
 *shown* is controlled by the **knob** (double-click → page selector), not the
@@ -108,11 +121,39 @@ no server and no hand-typed URLs.
 
 Included: **Flip Clock** — split-flap animation, 12/24-hour, dark/classic theme,
 optional seconds, and a corner date/day. (12-hour shows a single hour card with an
-AM/PM badge; 24-hour shows two hour cards.)
+AM/PM badge; 24-hour shows two hour cards.) It ships **enabled by default** (12-hour).
+
+![Configuring the Flip Clock app in the editor](docs/shots/editor-clock.png)
 
 Write your own: drop an HTML file in `apps/` that reads its settings from the URL
 **hash** (e.g. `…/myapp.html#color=red`) — a `?query` doesn't survive a `file://`
 load — and add an entry to `apps/apps.json` describing its options.
+
+## Adding a dashboard
+
+Web **Dashboard** pages are added the same way as grids and apps — **+ Dashboard**
+in the editor, then set the page's name, URL, and (if the site needs it) auth — see
+[Dashboards](#dashboards) above for the auth options. Use **Delete page** to remove one.
+
+![Adding and managing a dashboard page in the editor](docs/shots/editor-dashboard.png)
+
+## Settings & knob lighting
+
+The editor's **⚙ Settings** page (top-right) holds the app- and device-level options:
+
+- **On launch** — open the editor window, start **minimized** to the taskbar, or run
+  **tray-only** (panel + system tray, no window). open-quake always sits in the system
+  tray with quick toggles (mic, knob ring, re-place panel on the device).
+- **Knob ring** — the RGB ring around the knob. Pick an **effect** (the 44 QMK
+  RGB-matrix modes, or *All Off* to turn it off), a **color**, **brightness**, and
+  **effect speed**. Changes apply to the ring **instantly**; **Save to device** writes
+  them to the device's own memory so they persist across power-cycles.
+- **Microphone** — the on-board mic's LED lights whenever the mic is enabled (it's a
+  single hardware switch). Choose whether it's on at launch, and toggle it any time from
+  the tray menu or a **System → mic** tile.
+
+The ring is driven over the device's QMK VIA lighting channel; settings are stored in
+`%APPDATA%\open-quake` and re-applied on connect.
 
 ## Layout
 

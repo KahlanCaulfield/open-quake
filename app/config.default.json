@@ -28,25 +28,49 @@
     {
       "id": "media",
       "name": "Media",
-      "cols": 8,
-      "rows": 2,
+      "cols": 10,
+      "rows": 4,
       "tiles": [
-        { "label": "Spotify",  "icon": "🎵", "type": "url", "value": "https://open.spotify.com" },
-        { "label": "YouTube",  "icon": "📺", "type": "url", "value": "https://youtube.com" },
-        { "label": "Netflix",  "icon": "🍿", "type": "url", "value": "https://www.netflix.com" },
+        { "label": "Spotify",  "icon": "🎵", "type": "url", "value": "https://open.spotify.com", "w": 4, "h": 4 },
+        { "cover": 0 },
+        { "cover": 0 },
+        { "cover": 0 },
+        { "label": "YouTube",  "icon": "📺", "type": "url", "value": "https://youtube.com", "w": 2, "h": 2 },
+        { "cover": 4 },
+        { "label": "Netflix",  "icon": "🍿", "type": "url", "value": "https://www.netflix.com", "w": 2, "h": 2 },
+        { "cover": 6 },
+        { "label": "Twitch",   "icon": "🎮", "type": "url", "value": "https://twitch.tv" },
+        { "label": "Disney+",  "icon": "🏰", "type": "url", "value": "https://www.disneyplus.com" },
+        { "cover": 0 },
+        { "cover": 0 },
+        { "cover": 0 },
+        { "cover": 0 },
+        { "cover": 4 },
+        { "cover": 4 },
+        { "cover": 6 },
+        { "cover": 6 },
+        { "label": "Prime",    "icon": "📦", "type": "url", "value": "https://www.primevideo.com" },
+        { "label": "Plex",     "icon": "🎬", "type": "url", "value": "https://app.plex.tv" },
+        { "cover": 0 },
+        { "cover": 0 },
+        { "cover": 0 },
+        { "cover": 0 },
         { "label": "OBS",      "icon": "🎥", "type": "app", "value": "obs64" },
         { "label": "Discord",  "icon": "💬", "type": "app", "value": "discord" },
-        { "label": "Mixer",    "icon": "🎚️", "type": "cmd", "value": "start sndvol" },
-        { "label": "",         "icon": "",   "type": "",    "value": "" },
-        { "label": "Edit Grids","icon": "✏️","type": "system","value": "config" },
-        { "label": "", "icon": "", "type": "", "value": "" },
-        { "label": "", "icon": "", "type": "", "value": "" },
-        { "label": "", "icon": "", "type": "", "value": "" },
-        { "label": "", "icon": "", "type": "", "value": "" },
-        { "label": "", "icon": "", "type": "", "value": "" },
-        { "label": "", "icon": "", "type": "", "value": "" },
-        { "label": "", "icon": "", "type": "", "value": "" },
-        { "label": "", "icon": "", "type": "", "value": "" }
+        { "label": "Volume",   "icon": "🎚️", "type": "cmd", "value": "start sndvol" },
+        { "label": "YT Music", "icon": "🎶", "type": "url", "value": "https://music.youtube.com" },
+        { "label": "SoundCloud","icon": "☁️","type": "url", "value": "https://soundcloud.com" },
+        { "label": "Apple Music","icon": "🍎","type": "url", "value": "https://music.apple.com" },
+        { "cover": 0 },
+        { "cover": 0 },
+        { "cover": 0 },
+        { "cover": 0 },
+        { "label": "Pandora",  "icon": "📻", "type": "url", "value": "https://www.pandora.com" },
+        { "label": "Bandcamp", "icon": "🎸", "type": "url", "value": "https://bandcamp.com" },
+        { "label": "Last.fm",  "icon": "📊", "type": "url", "value": "https://www.last.fm" },
+        { "label": "Tidal",    "icon": "🌊", "type": "url", "value": "https://listen.tidal.com" },
+        { "label": "Deezer",   "icon": "🟣", "type": "url", "value": "https://www.deezer.com" },
+        { "label": "Edit Grids","icon": "✏️","type": "system", "value": "config" }
       ]
     },
     {
@@ -72,6 +96,27 @@
         { "label": "", "icon": "", "type": "", "value": "" },
         { "label": "", "icon": "", "type": "", "value": "" }
       ]
+    },
+    {
+      "id": "clock",
+      "name": "Flip Clock",
+      "kind": "app",
+      "app": "clock",
+      "options": { "mode": "12", "theme": "dark", "seconds": false, "date": true }
+    },
+    {
+      "id": "weather",
+      "name": "Weather",
+      "kind": "web",
+      "url": "https://www.windy.com/?39.809,-98.597,4",
+      "auth": { "type": "none" }
+    },
+    {
+      "id": "ha-demo",
+      "name": "Home Assistant",
+      "kind": "web",
+      "url": "https://demo.home-assistant.io/",
+      "auth": { "type": "none" }
     }
   ]
 }

@@ -31,6 +31,7 @@ const EventEmitter = require('events');
 // [vendorId, productId, usagePage] — first match wins.
 const CONTROL_IFACES = [[16728, 20811, 0xff60], [20498, 26647, 0xff60]]; // QUAKE / ARIS-68 control
 const TOUCH_IFACES = [[1810, 16, 0xff73]];                               // hotlotus touch
+const RGB_MATRIX_CH = 3; // QMK VIA custom-menu channel for the knob RGB ring (field 1=bright,2=effect,3=speed,4=color)
 
 // 0xA3 short-command frame: [0xA3, len, opCode, ...data, checksum]; checksum=(opCode+Σdata)%0xFF.
 function a3(opCode, data) { let s = opCode; for (const d of data) s += d; return [0xA3, data.length + 1, opCode, ...data, s % 0xFF]; }
@@ -115,8 +116,47 @@ class Aris68Connector extends EventEmitter {
   queryLuminance() { return this._send(FR.Q_LUMA); }
   buzzer(tone = 100) { return this._send(a3(0x01, [0x02, tone & 0xFF])); }   // derived from DK-Suite
   setKnobLed(on) { return this._send(a3(0x01, [0x06, on ? 0 : 1])); }        // derived
-  setBrightness(v) { return this._send(a3(0x01, [0x05, v & 0xFF])); }        // EXPERIMENTAL (unverified SET)
+  setMic(on) { return this._send(a3(0x01, [0x03, on ? 1 : 0])); }            // cmd3: 1=mic on, 0=off (from DK-Suite)
+  setBrightness(v) { return this._send(a3(0x01, [0x05, v & 0xFF])); }        // legacy 0xA3 path — use setLedBrightness (VIA) for the ring
   enterDfu() { return this._send(FR.DFU); }                                  // DANGER: firmware flash mode
+
+  // ---- knob RGB ring: QMK VIA lighting (a 2nd command channel on the SAME control interface) ----
+  // Standard QMK VIA: command 0x07=set, 0x08=get, 0x09=save-to-flash; RGB-Matrix on custom channel 3,
+  // field byte 1=brightness 2=effect(index 0..43) 3=speed 4=color[hue,sat]. Verified live (VIA proto 12).
+  // Report = [0x00 report-id, command, ...data] zero-padded to 33 bytes.
+  _via(command, data) {
+    if (!this.ctrl) return false;
+    const r = new Array(33).fill(0); r[0] = 0x00; r[1] = command & 0xFF;
+    data.forEach((b, i) => { r[2 + i] = b & 0xFF; });
+    try { this.ctrl.write(r); return true; } catch (e) { this.emit('error', e); this._closeCtrl(); return false; }
+  }
+  setLedBrightness(v) { return this._via(0x07, [RGB_MATRIX_CH, 0x01, v & 0xFF]); }      // device quantizes; max ~247
+  setLedEffect(i) { return this._via(0x07, [RGB_MATRIX_CH, 0x02, i & 0xFF]); }          // 0=All Off … 43 (RGB-Matrix list)
+  setLedSpeed(v) { return this._via(0x07, [RGB_MATRIX_CH, 0x03, v & 0xFF]); }
+  setLedColor(hue, sat) { return this._via(0x07, [RGB_MATRIX_CH, 0x04, hue & 0xFF, sat & 0xFF]); }
+  saveLighting() { return this._via(0x09, []); }                                        // persist ring lighting to device flash
+
+  /** Read the ring's current lighting from the device -> {brightness,effect,speed,hue,sat} (missing keys = no reply). */
+  getLighting(timeoutMs = 700) {
+    const readOne = (field, n) => new Promise(resolve => {
+      if (!this.ctrl) return resolve(null);
+      const expect = [0x08, RGB_MATRIX_CH, field];
+      let done = false;
+      const finish = v => { if (done) return; done = true; clearTimeout(to); try { this.ctrl.removeListener('data', onData); } catch (e) {} resolve(v); };
+      const onData = b => { const a = Array.from(b); if (expect.every((x, i) => a[i] === x)) finish(a.slice(3, 3 + n)); };
+      const to = setTimeout(() => finish(null), timeoutMs);
+      this.ctrl.on('data', onData);
+      this._via(0x08, [RGB_MATRIX_CH, field]);
+    });
+    return (async () => {
+      const out = {};
+      const b = await readOne(0x01, 1); if (b) out.brightness = b[0];
+      const e = await readOne(0x02, 1); if (e) out.effect = e[0];
+      const s = await readOne(0x03, 1); if (s) out.speed = s[0];
+      const c = await readOne(0x04, 2); if (c && c.length === 2) { out.hue = c[0]; out.sat = c[1]; }
+      return out;
+    })();
+  }
 
   /** Wake the panel (it ships dark) + start the keep-alive heartbeat so it never idle-blanks. */
   activate() {
