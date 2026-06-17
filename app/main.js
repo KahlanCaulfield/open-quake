@@ -4,6 +4,7 @@ const { app, BrowserWindow, screen, powerSaveBlocker, ipcMain, shell, dialog } =
 const path = require('path');
 const fs = require('fs');
 const { exec } = require('child_process');
+const { pathToFileURL } = require('url');
 const HID = require('node-hid');
 const Aris68Connector = require(path.join(__dirname, '..', 'src', 'Aris68Connector'));
 let robot = null; try { robot = require('robotjs'); } catch (e) { console.log('robotjs unavailable (knob-volume off):', e.message); }
@@ -25,11 +26,44 @@ function loadConfig() {
 function saveConfig() { try { fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2)); } catch (e) { console.log('config save error:', e.message); } }
 function activeGrid() { return config.grids.find(g => g.id === config.activeGridId) || config.grids[0] || { cols: 8, rows: 2, tiles: [] }; }
 function gridList() { return config.grids.map(g => ({ id: g.id, name: g.name })); }
-function pushToPanel() {
+async function pushToPanel() {
   if (panelWin && !panelWin.isDestroyed()) {
-    panelWin.webContents.send('grid', activeGrid());
+    panelWin.webContents.send('grid', await resolveGridIcons(activeGrid()));
     panelWin.webContents.send('gridList', { grids: gridList(), activeId: config.activeGridId });
   }
+}
+
+// Resolve app/image icons to something the panel renderer can draw (data: URL or file: URL).
+async function resolveGridIcons(grid) {
+  const tiles = await Promise.all((grid.tiles || []).map(async t => {
+    const out = { ...t };
+    if (t.iconType === 'image' && t.iconImage) { try { out.iconSrc = pathToFileURL(t.iconImage).href; } catch (e) {} }
+    else if (t.iconType === 'app') { const d = await getAppIconDataUrl(t.value); if (d) out.iconSrc = d; }
+    return out;
+  }));
+  return { ...grid, tiles };
+}
+
+// Extract a program's own icon as a data: URL (best-effort; null if it can't be resolved).
+async function getAppIconDataUrl(value) {
+  try {
+    const p = await resolveAppPath(value);
+    if (!p) return null;
+    const img = await app.getFileIcon(p, { size: 'large' });
+    return (!img || img.isEmpty()) ? null : img.toDataURL();
+  } catch (e) { return null; }
+}
+
+// Turn an app value into a real file path: full paths used as-is; bare names resolved via `where`.
+function resolveAppPath(value) {
+  return new Promise(resolve => {
+    if (!value) return resolve(null);
+    if (/[\\/]/.test(value)) return resolve(fs.existsSync(value) ? value : null);
+    exec(`where "${value}"`, { windowsHide: true }, (err, stdout) => {
+      const first = (stdout || '').split(/\r?\n/).map(s => s.trim()).find(Boolean);
+      resolve(first && fs.existsSync(first) ? first : null);
+    });
+  });
 }
 
 function runAction(a) {
@@ -74,7 +108,7 @@ function openConfigWindow() {
   if (configWin && !configWin.isDestroyed()) { configWin.show(); configWin.focus(); return; }
   const prim = screen.getPrimaryDisplay().bounds;
   configWin = new BrowserWindow({
-    width: 1100, height: 720, x: prim.x + 80, y: prim.y + 60, title: 'DK-QUAKE Grid Editor',
+    width: 1180, height: 760, x: prim.x + 80, y: prim.y + 60, title: 'open-quake Editor',
     backgroundColor: '#11151c', webPreferences: { nodeIntegration: true, contextIsolation: false },
   });
   configWin.loadFile(path.join(__dirname, 'config.html'));
@@ -94,6 +128,11 @@ app.whenReady().then(() => {
     const r = await dialog.showOpenDialog(configWin, { properties: ['openFile'], filters: [{ name: 'Programs', extensions: ['exe', 'lnk', 'bat', 'cmd', 'com'] }, { name: 'All Files', extensions: ['*'] }] });
     return (r.canceled || !r.filePaths.length) ? null : r.filePaths[0];
   });
+  ipcMain.handle('pickImage', async () => {
+    const r = await dialog.showOpenDialog(configWin, { properties: ['openFile'], filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico', 'svg'] }, { name: 'All Files', extensions: ['*'] }] });
+    return (r.canceled || !r.filePaths.length) ? null : r.filePaths[0];
+  });
+  ipcMain.handle('getAppIcon', (e, value) => getAppIconDataUrl(value));
 
   placePanel();
   dev.on('touch', pts => { if (panelWin && !panelWin.isDestroyed()) panelWin.webContents.send('touch', pts); });

@@ -15,6 +15,7 @@
     transition: transform .06s, background .06s, border-color .06s; }
   .tile.empty { background: #0a111a; border: 1px dashed #1b2838; }
   .tile .ic { font-size: 60px; line-height: 1; }
+  .tile .ic-img { width: 64px; height: 64px; object-fit: contain; }
   .tile .lb { font-size: 20px; margin-top: 8px; color: #9fb3c8; }
   .tile.hit { background: linear-gradient(160deg, #2b8bff, #0a5bd0); border-color: #7CFFB2;
     color: #fff; transform: scale(.95); box-shadow: 0 0 28px rgba(43,139,255,.55); }
@@ -60,7 +61,8 @@
       const empty = !t || !t.type;
       d.className = 'tile' + (empty ? ' empty' : '');
       d.dataset.i = i;
-      d.innerHTML = empty ? '' : `<div class="ic">${t.icon || '▫️'}</div><div class="lb">${t.label || ''}</div>`;
+      const ic = t.iconSrc ? `<img class="ic-img" src="${t.iconSrc}">` : `<div class="ic">${t.icon || '▫️'}</div>`;
+      d.innerHTML = empty ? '' : `${ic}<div class="lb">${t.label || ''}</div>`;
       grid.appendChild(d);
     });
   }
