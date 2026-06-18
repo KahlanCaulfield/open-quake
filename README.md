@@ -44,10 +44,13 @@ Grab a build from the **[Releases](https://github.com/TeeJS/open-quake/releases)
 - **`open-quake-<version>-portable.exe`** — run directly, no install.
 - **`open-quake-<version>-setup.exe`** — installer (Start-menu shortcut + uninstaller).
 
-The exe is **code-signed** via Azure Trusted Signing (publisher *Thomas Schmitz*), so there's
-no "unknown publisher" warning. Plug in the DK-QUAKE, then launch; config is stored in
-`%APPDATA%\open-quake`. (Linux/macOS builds would need platform-specific launch/volume
-work — not done yet.)
+The exe is **code-signed** (Azure Trusted Signing, publisher *Thomas Schmitz*) — so you see a
+verified publisher, not "Unknown publisher." Windows SmartScreen may still show a **"Windows
+protected your PC"** prompt on first download; that's reputation-based (it eases as a release
+gains downloads), not a problem with the file. Confirm the publisher reads **Thomas Schmitz**,
+then click **More info → Run anyway**. Plug in the DK-QUAKE, then launch; config is stored in
+`%APPDATA%\open-quake`. (Linux/macOS builds would need platform-specific launch/volume work —
+not done yet.)
 
 ## Hardware
 
