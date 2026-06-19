@@ -165,6 +165,18 @@ function openConfigWindow() {
   });
   configWin.loadFile(path.join(__dirname, 'config.html'));
   configWin.on('closed', () => { configWin = null; });
+  configWin.webContents.on('context-menu', (e, props) => {
+    const sel = props.selectionText && props.selectionText.trim().length > 0;
+    const editable = props.isEditable;
+    const menu = Menu.buildFromTemplate([
+      { role: 'cut', enabled: editable && sel },
+      { role: 'copy', enabled: sel },
+      { role: 'paste', enabled: editable },
+      { type: 'separator' },
+      { role: 'selectAll', enabled: editable || sel },
+    ]);
+    menu.popup({ window: configWin });
+  });
 }
 
 // ---- device settings (knob RGB ring, mic) ----
