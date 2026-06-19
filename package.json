@@ -5,6 +5,9 @@
   "description": "Open driver + multi-grid touchscreen launcher for the DK-QUAKE / ARIS-68 touchscreen-and-knob macro device.",
   "main": "app/main.js",
   "author": "TeeJS",
+  "engines": {
+    "node": ">=18 <25"
+  },
   "scripts": {
     "start": "electron .",
     "rebuild": "electron-rebuild -v 23.0.0 -f",

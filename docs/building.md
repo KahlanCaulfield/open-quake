@@ -19,6 +19,12 @@ Full reverse-engineered protocol: [DEVICE_PROTOCOL.md](DEVICE_PROTOCOL.md).
 
 ## Build & run (Windows)
 
+> **Use a Node LTS — 20, 22, or 24** (built and verified on **24**). **Don't use Node 25/26.**
+> The native-rebuild toolchain (`@electron/rebuild`) bundles an older `yargs` that won't load
+> under Node 25/26 — `npm run rebuild` dies with *"ReferenceError: require is not defined in ES
+> module scope."* If you hit that, `node --version`, switch to an LTS, delete `node_modules`, and
+> reinstall. (`package.json` declares `"engines": node >=18 <25`; an `.nvmrc` pins 24.)
+
 The native modules (`node-hid`, `robotjs`) must be built for this app's Electron
 ABI (**Electron 23**), *not* your host Node. A plain `npm install` fails —
 `robotjs` (0.6.0) can't compile against modern Node. So install without scripts,
