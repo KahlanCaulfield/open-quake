@@ -112,7 +112,16 @@ function loadApps() {
 function appPageUrl(page) {
   const def = loadApps().find(a => a.id === page.app);
   if (!def) return 'about:blank';
-  if (def.served) return 'http://127.0.0.1:' + serverPort + '/' + def.id;   // served by the local server (live data + same-origin fetch + grid launch)
+  if (def.served) {                                                          // served by the local server (live data, same-origin fetch, grid launch)
+    const opts = page.options || {};                                         // pass options as a ?query (http keeps query strings; widgets like OWUI read them)
+    const qs = (def.options || []).map(o => {
+      let v = (o.key in opts) ? opts[o.key] : o.default;
+      if (v == null || v === '') return null;
+      if (o.type === 'bool') v = v ? '1' : '0';
+      return encodeURIComponent(o.key) + '=' + encodeURIComponent(v);
+    }).filter(Boolean).join('&');
+    return 'http://127.0.0.1:' + serverPort + '/' + def.id + (qs ? '?' + qs : '');
+  }
   const file = path.join(APPS_DIR, def.file);
   const opts = page.options || {};
   const hash = (def.options || []).map(o => {
@@ -375,6 +384,7 @@ app.whenReady().then(async () => {
   //  - 'basic'   -> answer HTTP Basic Auth challenges with the configured user/pass
   // ('ha' token injection is done renderer-side; 'none' does nothing.)
   const dashSession = session.fromPartition('persist:dashboards');
+  dashSession.setPermissionRequestHandler((wc, permission, cb) => cb(true));   // local trusted panel: allow mic (push-to-talk) etc.
   dashSession.webRequest.onBeforeSendHeaders((details, cb) => {
     const g = activeGrid();
     if (g && g.kind === 'web' && g.auth && g.auth.type === 'header' && hostMatches(g.url, details.url)) {

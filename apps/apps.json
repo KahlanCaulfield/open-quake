@@ -26,5 +26,16 @@
         { "label": "Tidal",       "icon": "🌊", "type": "url", "value": "https://listen.tidal.com" }
       ]
     }
+  },
+  {
+    "id": "chat",
+    "name": "Open WebUI",
+    "file": "chatview.html",
+    "served": true,
+    "options": [
+      { "key": "endpoint", "label": "Open WebUI chat URL (…/api/chat/completions)", "type": "text", "default": "" },
+      { "key": "api_key",  "label": "API key",                                       "type": "text", "default": "" },
+      { "key": "model",    "label": "Model (optional, e.g. llama3.2)",               "type": "text", "default": "" }
+    ]
   }
 ]

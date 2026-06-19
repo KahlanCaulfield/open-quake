@@ -176,7 +176,14 @@ class Aris68Connector extends EventEmitter {
         const len = b[1], op = b[2], cmd = b[3], sub = Array.from(b.slice(4, 4 + Math.max(0, len - 2)));
         if (op === 3) {
           if (cmd === 1) this.emit('knob', { type: 'rotate', dir: sub[0] === 1 ? 1 : -1 });
-          else if (cmd === 2) this.emit('knob', { type: 'press', index: sub[0] });
+          else if (cmd === 2) {
+            // Press frame index: 1=single click, 2=double click; a HOLD reports its edges separately —
+            // 5 = pressed down, 0xFF = released (gap between them = hold duration → push-to-talk).
+            const i = sub[0];
+            if (i === 5) this.emit('knob', { type: 'hold', phase: 'start' });
+            else if (i === 0xFF) this.emit('knob', { type: 'hold', phase: 'end' });
+            else this.emit('knob', { type: 'press', index: i });
+          }
         } else if (op === 0x55) {
           if (cmd === 0x2E) this.emit('state', { name: sub[0], firmware: `${sub[1]}.${sub[2]}.${sub[3]}` });
           else if (cmd === 0x03) this.emit('state', { mic: sub[0] === 1 });
