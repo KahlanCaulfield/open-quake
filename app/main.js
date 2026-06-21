@@ -119,7 +119,7 @@ function appPageUrl(page) {
       let v = (o.key in opts) ? opts[o.key] : o.default;
       if (v == null || v === '') return null;
       if (o.type === 'bool') v = v ? '1' : '0';
-      return encodeURIComponent(o.key) + '=' + encodeURIComponent(v);
+      return encodeURIComponent(o.key) + '=' + encodeURIComponent(v); 
     }).filter(Boolean).join('&');
     return 'http://127.0.0.1:' + serverPort + '/' + def.id + (qs ? '?' + qs : '');
   }
@@ -128,9 +128,25 @@ function appPageUrl(page) {
   const hash = (def.options || []).map(o => {
     let v = (o.key in opts) ? opts[o.key] : o.default;
     if (o.type === 'bool') v = v ? '1' : '0';
+    if (o.type === 'section') {
+      return createSectionHash(o.options, opts);
+    }
     return encodeURIComponent(o.key) + '=' + encodeURIComponent(v);
   }).join('&');
+  console.log(pathToFileURL(file).href + (hash ? '#' + hash : ''));
   return pathToFileURL(file).href + (hash ? '#' + hash : '');
+}
+
+function createSectionHash(options, opts)
+{
+   return (options || []).map(o => {
+     let v = (o.key in opts) ? opts[o.key] : o.default;
+     if (o.type === 'bool') v = v ? '1' : '0';
+     if (o.type === 'section') {
+       return  createSectionHash(o.options);
+     }
+     return encodeURIComponent(o.key) + '=' + encodeURIComponent(v);
+   }).join('&');
 }
 function saveConfig() { try { fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2)); } catch (e) { console.log('config save error:', e.message); } }
 function activeGrid() { return config.grids.find(g => g.id === config.activeGridId) || config.grids[0] || { cols: 8, rows: 2, tiles: [] }; }

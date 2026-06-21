@@ -584,6 +584,9 @@
                     ${renderSection(o.options, g)}
                  </details>`;
       }
+      else if (o.type === 'file') {
+        field = renderTypeFile(o.key, defaultValue);
+      }
       else
       {
         field = `<input class="aopt" data-key="${esc(o.key)}" value="${esc(defaultValue)}">`;
@@ -605,9 +608,14 @@
     document.querySelectorAll('[data-visible-when]').forEach(el => {
       const rule = JSON.parse(el.dataset.visibleWhen);
 
-      const visible = Object.entries(rule).every(
-              ([key, value]) => g.options[key] === value
-      );
+      const visible = Object.entries(rule).every(([key, expected]) => {
+        const current = g.options[key];
+
+        if (Array.isArray(expected))
+          return expected.includes(current);
+
+        return current === expected;
+      });
 
       el.style.display = visible ? '' : 'none';
     });
@@ -645,12 +653,15 @@
         </details>
       `;
       }
+      else if (o.type === 'file') {
+        field = renderTypeFile(o.key, defaultValue);
+      }
       else {
         field = `
         <input
           class="aopt"
           data-key="${esc(o.key)}"
-          value="${esc(v)}">
+          value="${esc(defaultValue)}">
       `;
       }
 
@@ -703,7 +714,27 @@
                     <span>${esc(defaultValue)}</span>
                   </div>`;
   }
+  function renderTypeFile(key, value) {
+    const preview = value
+            ? `<img class="previewBackground" src="${value}" style="max-width:100px;max-height:60px;border-radius:6px;margin-top:6px;">`
+            : '';
 
+    return `
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <button type="button" class="fileBtn" data-key="${esc(key)}">
+        Choisir un fichier
+      </button>
+
+      <input
+        type="hidden"
+        class="aopt"
+        data-key="${esc(key)}"
+        value="${esc(value || '')}">
+
+      ${preview}
+    </div>
+  `;
+  }
   function deleteCurrentPage() {
     if (config.grids.length <= 1) return;
     config.grids.splice(gi, 1); gi = 0; ti = -1;
@@ -845,6 +876,35 @@
     if (view === 'settings') { ledState = null; try { ledState = await ipcRenderer.invoke('getLighting'); } catch (e) {} }
     render();
   };
+  document.addEventListener("click", async (e) => {
+    const btn = e.target.closest(".fileBtn");
+    if (!btn) return;
+
+    const key = btn.dataset.key;
+
+    const filePath = await ipcRenderer.invoke('pickImage');
+
+    if (!filePath) return;
+
+    // update hidden input
+    const input = document.querySelector(`input[data-key="${key}"]`);
+    input.value = filePath;
+
+    // update preview si existant
+    const img = btn.parentElement.querySelector("img");
+    if (img) img.src = filePath;
+    else {
+      const newImg = document.createElement("img");
+      newImg.src = filePath;
+      newImg.style.maxWidth = "100px";
+      newImg.style.maxHeight = "60px";
+      newImg.style.borderRadius = "6px";
+      newImg.style.marginTop = "6px";
+      btn.parentElement.appendChild(newImg);
+    }
+
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
   window.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); if (dirty) doSave(); } });
 
   (async () => {

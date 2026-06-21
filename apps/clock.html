@@ -7,7 +7,8 @@
 <style>
   /* ---- theme ---- */
   :root {
-    --bg: radial-gradient(120% 160% at 50% 0%, #0e1622 0%, #05080d 70%);
+    --bg-image: none;
+    --bg: radial-gradient(120% 160% at 50% 0%, var(--bg-start) 0%, var(--bg-end) var(--bg-gradient));
     --card-top: #20242c;
     --card-bottom: #141821;
     --digit: #aef4ff;
@@ -34,6 +35,7 @@
   html, body { margin: 0; height: 100%; overflow: hidden; }
   body {
     background: var(--bg);
+    background-image: var(--bg-image);
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
     color: var(--label);
     display: flex; align-items: center; justify-content: center;
@@ -144,6 +146,11 @@
     if ('theme' in p) s.theme = p.theme === 'classic' ? 'classic' : 'dark';
     if ('seconds' in p) s.seconds = p.seconds === '1' || p.seconds === 'true';
     if ('date' in p) s.date = !(p.date === '0' || p.date === 'false');
+    if ('background_type' in p) s.background_type = p.background_type;
+    if ('background_color_one' in p) s.background_color_one = p.background_color_one;
+    if ('background_color_two' in p) s.background_color_two = p.background_color_two;
+    if ('background_gradient_percent' in p) s.background_gradient_percent = p.background_gradient_percent;
+    if ('background_image_file' in p) s.background_image_file = p.background_image_file;
     return s;
   }
   function save() { try { localStorage.setItem('flipclock', JSON.stringify(settings)); } catch (e) {} }
@@ -191,6 +198,28 @@
     const corner = document.getElementById('corner');
     corner.style.display = settings.date ? 'block' : 'none';
     corner.innerHTML = settings.date ? '<span class="cdate" id="date"></span><span class="cdow" id="dow"></span>' : '';
+    const r = document.documentElement.style;
+    console.log(settings.background_type);
+    if(settings.background_type === 'background_solid')
+    {
+      r.setProperty('--bg-start', decodeURIComponent(settings.background_color_one));
+      r.setProperty('--bg-end', decodeURIComponent(settings.background_color_one));
+    }
+    else if(settings.background_type === 'background_gradient')
+    {
+      r.setProperty('--bg-start', decodeURIComponent(settings.background_color_one));
+      r.setProperty('--bg-end', decodeURIComponent(settings.background_color_two));
+      r.setProperty('--bg-gradient', `${decodeURIComponent(settings.background_gradient_percent)}%`);
+    }
+    else if(settings.background_type === 'background_image')
+    {
+      console.log(settings.background_image_file);
+      console.log(decodeURIComponent(settings.background_image_file));
+      const path = settings.background_image_file.replaceAll("\\", "/");
+      r.setProperty("--bg-image", "url('file:///" + decodeURIComponent(path) + "')");
+      r.setProperty('--bg-start', "transparent");
+      r.setProperty('--bg-end', "transparent");
+    }
     for (const k in cards) cards[k].dataset.v = '';           // force a fresh first paint
     tick(true);
   }
