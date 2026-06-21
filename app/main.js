@@ -325,7 +325,7 @@ function placePanel() {
     panelWin.once('ready-to-show', () => {
       const dd = deviceDisplay() || d;
       panelWin.setBounds(dd.bounds); panelWin.setAlwaysOnTop(true); panelWin.show(); panelWin.focus();
-      setTimeout(() => panelWin.setAlwaysOnTop(false), 1500);
+      setTimeout(() => panelWin.setAlwaysOnTop(true, 'screen-saver'), 1500);
       pushToPanel();
       console.log('panel placed at', JSON.stringify(panelWin.getBounds()));
     });
