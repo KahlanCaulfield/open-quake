@@ -1,13 +1,84 @@
 [
   {
+    "file": "clock.html",
     "id": "clock",
     "name": "Flip Clock",
-    "file": "clock.html",
     "options": [
-      { "key": "mode",    "label": "Mode",          "type": "select", "default": "24",   "choices": [["24", "24-hour"], ["12", "12-hour"]] },
-      { "key": "theme",   "label": "Theme",         "type": "select", "default": "dark", "choices": [["dark", "Dark"], ["classic", "Classic"]] },
-      { "key": "seconds", "label": "Show seconds",  "type": "bool",   "default": false },
-      { "key": "date",    "label": "Show date & day", "type": "bool", "default": true }
+      {
+        "key": "mode",
+        "label": "Mode",
+        "type": "select",
+        "default": "24",
+        "choices": [
+          [
+            "24",
+            "24-hour"
+          ],
+          [
+            "12",
+            "12-hour"
+          ]
+        ]
+      },
+      {
+        "key": "theme",
+        "label": "Theme",
+        "type": "select",
+        "default": "dark",
+        "choices": [
+          [
+            "dark",
+            "Dark"
+          ],
+          [
+            "classic",
+            "Classic"
+          ]
+        ]
+      },
+      {
+        "key": "seconds",
+        "label": "Show seconds",
+        "type": "bool",
+        "default": false
+      },
+      {
+        "key": "date",
+        "label": "Show date & day",
+        "type": "bool",
+        "default": true
+      },
+      {
+        "key": "advanced",
+        "label": "Advanced options",
+        "type": "section",
+        "options": [
+          {
+            "key": "background_type",
+            "label": "Background Type",
+            "type": "select",
+            "choices": [
+              [
+                "background_solid",
+                "Solid"
+              ],
+              [
+                "background_gradient",
+                "Gradient"
+              ]
+            ]
+          },
+          {
+            "key": "background_color",
+            "label": "Background Color",
+            "type": "color",
+            "visibleWhen": {
+              "background_type": "background_solid"
+            },
+            "default": "#05080d"
+          }
+        ]
+      }
     ]
   },
   {

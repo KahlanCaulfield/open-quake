@@ -1,5 +1,5 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <style>
@@ -43,7 +43,7 @@
   .cell.dragover { border-color: #7CFFB2; box-shadow: 0 0 0 2px #7CFFB2; }
   .cell img { pointer-events: none; -webkit-user-drag: none; }
   .mergebar { display: flex; align-items: center; gap: 12px; margin: 0 0 14px; min-height: 20px; }
-  .mergebar.active { background: #13243a; border: 1px solid #2b6fb0; border-radius: 8px; padding: 10px 14px; }
+  /*.mergebar.active { background: #13243a; border: 1px solid #2b6fb0; border-radius: 8px; padding: 10px 14px; }*/
   .mergebar .hint { margin: 0; }
   .mergebar b { color: #cfe0f2; }
   .panes { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
@@ -60,6 +60,15 @@
   .iconpreview .em { font-size: 52px; line-height: 1; }
   .iconpreview img { width: 64px; height: 64px; object-fit: contain; }
   .iconpreview .none { color: #41566b; font-size: 13px; }
+  input[type="color"] {
+    width: 48px;
+    height: 32px;
+    padding: 2px;
+    border: 1px solid #444;
+    border-radius: 6px;
+    background: #222;
+    cursor: pointer;
+  }
   .hint { color: #6f8298; font-size: 12px; margin-top: 8px; }
   footer { padding: 12px 18px; background: #0c1016; border-top: 1px solid #1e2733; display: flex; align-items: center; gap: 14px; }
   footer .state { font-size: 13px; margin-right: auto; }
@@ -67,6 +76,7 @@
   footer .state.saved { color: #7CFFB2; }
   footer button.primary { padding: 9px 30px; font-size: 14px; }
 </style>
+  <title></title>
 </head>
 <body>
   <header>
@@ -174,11 +184,11 @@
   // icon HTML for a tile in a given context: 'cell' (grid preview) or 'prev' (big preview)
   function iconHtml(t, ctx) {
     const type = iconTypeOf(t);
-    if (type === 'image' && t.iconImage) return `<img class="${ctx === 'cell' ? 'cimg' : ''}" src="${fileUrl(t.iconImage)}">`;
-    if (type === 'url' && t.iconCache) return `<img class="${ctx === 'cell' ? 'cimg' : ''}" src="${urlSrc(t)}">`;
+    if (type === 'image' && t.iconImage) return `<img class="${ctx === 'cell' ? 'cimg' : ''}" src="${fileUrl(t.iconImage)}" alt="">`;
+    if (type === 'url' && t.iconCache) return `<img class="${ctx === 'cell' ? 'cimg' : ''}" src="${urlSrc(t)}" alt="">`;
     if (type === 'app' && t.value) {
       const c = appIconCache[t.value];
-      if (c) return `<img class="${ctx === 'cell' ? 'cimg' : ''}" src="${c}">`;
+      if (c) return `<img class="${ctx === 'cell' ? 'cimg' : ''}" src="${c}" alt="">`;
       ensureAppIcon(t.value);                   // load + re-render; emoji fallback meanwhile
     }
     const em = t.icon || (type === 'app' ? '🚀' : '▫️');
@@ -413,12 +423,12 @@
   function renderIconPreview(t) {
     const el = document.getElementById('iconpreview'); if (!el) return;
     const type = iconTypeOf(t);
-    if (type === 'image' && t.iconImage) el.innerHTML = `<img src="${fileUrl(t.iconImage)}">`;
-    else if (type === 'url' && t.iconCache) el.innerHTML = `<img src="${urlSrc(t)}">`;
+    if (type === 'image' && t.iconImage) el.innerHTML = `<img src="${fileUrl(t.iconImage)}" alt="">`;
+    else if (type === 'url' && t.iconCache) el.innerHTML = `<img src="${urlSrc(t)}" alt="">`;
     else if (type === 'url') el.innerHTML = `<span class="none">fetch an image URL to preview</span>`;
     else if (type === 'app' && t.value) {
       const c = appIconCache[t.value];
-      if (c) el.innerHTML = `<img src="${c}">`;
+      if (c) el.innerHTML = `<img src="${c}" alt="">`;
       else if (c === false) el.innerHTML = `<span class="none">couldn’t read icon — emoji shown instead</span>`;
       else { el.innerHTML = `<span class="none">resolving…</span>`; ensureAppIcon(t.value); }
     } else if (type === 'app') el.innerHTML = `<span class="none">no program set</span>`;
@@ -529,6 +539,7 @@
     wireRotRow(g);
     renderAppOpts(g, def);
   }
+
   function setApp(g, id) {
     const prev = appDefs.find(a => a.id === g.app);
     g.app = id;
@@ -548,20 +559,149 @@
     if (!def) { el.innerHTML = ''; return; }
     if (!g.options) g.options = {};
     el.innerHTML = (def.options || []).map(o => {
-      const v = (o.key in g.options) ? g.options[o.key] : o.default;
+      const defaultValue = (o.key in g.options) ? g.options[o.key] : o.default;
+      const visibleAttr = o.visibleWhen
+              ? `data-visible-when='${esc(JSON.stringify(o.visibleWhen))}'`
+              : '';
       let field;
-      if (o.type === 'select') field = `<select class="aopt" data-key="${esc(o.key)}">${o.choices.map(ch => { const val = Array.isArray(ch) ? ch[0] : ch, lab = Array.isArray(ch) ? ch[1] : ch; return `<option value="${esc(val)}" ${String(v) === String(val) ? 'selected' : ''}>${esc(lab)}</option>`; }).join('')}</select>`;
-      else if (o.type === 'bool') field = `<input type="checkbox" class="aopt" data-key="${esc(o.key)}" ${v ? 'checked' : ''} style="width:auto">`;
-      else if (o.type === 'secret') field = secretInput(v, `class="aopt" data-key="${esc(o.key)}"`);
-      else field = `<input class="aopt" data-key="${esc(o.key)}" value="${esc(v)}">`;
+      if (o.type === 'select'){
+        field = renderTypeSelect(o.key, o.choices, defaultValue,);
+      }
+      else if (o.type === 'bool') {
+        field = renderTypeBool(o.key, defaultValue);
+      }
+      else if (o.type === 'secret')
+      {
+        field = secretInput(defaultValue, `class="aopt" data-key="${esc(o.key)}"`);
+      }
+      else if (o.type === 'color'){
+        field = renderTypeColor(o.key, defaultValue);
+      }
+      else if (o.type === 'section')
+      {
+        return ` <details class="section">
+                    <summary>${esc(o.label)}</summary>
+                    ${renderSection(o.options, g)}
+                 </details>`;
+      }
+      else
+      {
+        field = `<input class="aopt" data-key="${esc(o.key)}" value="${esc(defaultValue)}">`;
+      }
+
       const help = o.help ? `<p class="hint" style="margin:-2px 0 10px 78px">${esc(o.help)}</p>` : '';
-      return `<div class="row"><label>${esc(o.label)}</label>${field}</div>${help}`;
+      return `<div class="row" ${visibleAttr} ><label>${esc(o.label)}</label>${field}</div>${help}`;
     }).join('');
+
     el.querySelectorAll('.aopt').forEach(inp => inp.onchange = e => {
       const o = (def.options || []).find(x => x.key === e.target.dataset.key);
       g.options[e.target.dataset.key] = (o && o.type === 'bool') ? e.target.checked : e.target.value;
+      updateVisibility(g);
       markDirty();
     });
+  }
+
+  function updateVisibility(g) {
+    document.querySelectorAll('[data-visible-when]').forEach(el => {
+      const rule = JSON.parse(el.dataset.visibleWhen);
+
+      const visible = Object.entries(rule).every(
+              ([key, value]) => g.options[key] === value
+      );
+
+      el.style.display = visible ? '' : 'none';
+    });
+  }
+
+  function renderSection(options, g) {
+    return options.map(o => {
+      const defaultValue = (o.key in g.options) ? g.options[o.key] : o.default;
+      const visibleAttr = o.visibleWhen
+              ? `data-visible-when='${esc(JSON.stringify(o.visibleWhen))}'`
+              : '';
+
+      let field;
+
+      if (o.type === 'select') {
+        field = renderTypeSelect(o.key, o.choices, defaultValue);
+      }
+      else if (o.type === 'bool') {
+        field = renderTypeBool(o.key, defaultValue);
+      }
+      else if (o.type === 'color') {
+        field = renderTypeColor(o.key, defaultValue);
+      }
+      else if (o.type === 'secret') {
+        field = secretInput(
+                v,
+                `class="aopt" data-key="${esc(o.key)}"`
+        );
+      }
+      else if (o.type === 'section') {
+        return `
+        <details class="settings-section">
+          <summary>${esc(o.label)}</summary>
+          ${renderSection(o.options || [], g)}
+        </details>
+      `;
+      }
+      else {
+        field = `
+        <input
+          class="aopt"
+          data-key="${esc(o.key)}"
+          value="${esc(v)}">
+      `;
+      }
+
+      const help = o.help
+              ? `<p class="hint" style="margin:-2px 0 10px 78px">${esc(o.help)}</p>`
+              : '';
+
+      return `
+      <div class="row"
+        ${visibleAttr}>
+        <label>${esc(o.label)}</label>
+        ${field}
+      </div>
+      ${help}
+    `;
+    }).join('');
+  }
+  
+  function renderTypeSelect(key, choices, defaultValue)
+  {
+    return `
+        <select class="aopt" data-key="${esc(key)}">
+          ${choices.map(ch => {
+      const val = Array.isArray(ch) ? ch[0] : ch;
+      const lab = Array.isArray(ch) ? ch[1] : ch;
+      return `
+              <option value="${esc(val)}"
+                ${String(defaultValue) === String(val) ? 'selected' : ''}>
+                ${esc(lab)}
+              </option>
+            `;
+    }).join('')}
+        </select>
+      `;
+  }
+  
+  function renderTypeBool(key, defaultValue)
+  {
+    return `<input type="checkbox" class="aopt" data-key="${esc(key)}" ${defaultValue ? 'checked' : ''} style="width:auto">`;
+  }
+
+  function renderTypeColor(key, defaultValue)
+  {
+    return `<div class="color-picker">
+                    <input
+                      type="color"
+                      class="aopt"
+                      data-key="${esc(key)}"
+                      value="${esc(defaultValue)}">
+                    <span>${esc(defaultValue)}</span>
+                  </div>`;
   }
 
   function deleteCurrentPage() {
