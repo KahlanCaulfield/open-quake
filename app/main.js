@@ -133,7 +133,6 @@ function appPageUrl(page) {
     }
     return encodeURIComponent(o.key) + '=' + encodeURIComponent(v);
   }).join('&');
-  console.log(pathToFileURL(file).href + (hash ? '#' + hash : ''));
   return pathToFileURL(file).href + (hash ? '#' + hash : '');
 }
 
