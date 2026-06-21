@@ -10,6 +10,7 @@
   },
   "scripts": {
     "start": "node build-smtc.js && electron .",
+    "watch": "nodemon --exec electron .",
     "rebuild": "electron-rebuild -v 23.0.0 -f",
     "build:smtc": "node build-smtc.js",
     "dist": "node build-smtc.js && electron-builder --win"
@@ -26,6 +27,7 @@
   ],
   "dependencies": {
     "node-hid": "^3.3.0",
+    "nodemon": "^3.1.14",
     "robotjs": "^0.6.0",
     "systeminformation": "^5.31.7"
   },
