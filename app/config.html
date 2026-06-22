@@ -585,8 +585,11 @@
                     ${renderSection(o.options, g)}
                  </details>`;
       }
-      else if (o.type === 'file') {
-        field = renderTypeFile(o.key, defaultValue);
+      else if (o.type === 'file_image') {
+        field = renderTypeFileImage(o.key, defaultValue);
+      }
+      else if (o.type === 'file_video') {
+        field = renderTypeFileVideo(o.key, defaultValue);
       }
       else
       {
@@ -654,8 +657,11 @@
         </details>
       `;
       }
-      else if (o.type === 'file') {
-        field = renderTypeFile(o.key, defaultValue);
+      else if (o.type === 'file_image') {
+        field = renderTypeFileImage(o.key, defaultValue);
+      }
+      else if (o.type === 'file_video') {
+        field = renderTypeFileVideo(o.key, defaultValue);
       }
       else {
         field = `
@@ -715,14 +721,15 @@
                     <span>${esc(defaultValue)}</span>
                   </div>`;
   }
-  function renderTypeFile(key, value) {
+
+  function renderTypeFileImage(key, value) {
     const preview = value
             ? `<img class="previewBackground" src="${value}" style="max-width:100px;max-height:60px;border-radius:6px;margin-top:6px;">`
             : '';
 
     return `
     <div style="display:flex; flex-direction:column; gap:6px;">
-      <button type="button" class="fileBtn" data-key="${esc(key)}">
+      <button type="button" class="fileImageBtn" data-key="${esc(key)}">
         Choisir un fichier
       </button>
 
@@ -736,6 +743,29 @@
     </div>
   `;
   }
+
+  function renderTypeFileVideo(key, value) {
+    const preview = value
+            ? `<video class="previewBackground" src="${value}" style="max-width:100px;max-height:60px;border-radius:6px;margin-top:6px;">`
+            : '';
+
+    return `
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <button type="button" class="fileVideoBtn" data-key="${esc(key)}">
+        Choisir un fichier
+      </button>
+
+      <input
+        type="hidden"
+        class="aopt"
+        data-key="${esc(key)}"
+        value="${esc(value || '')}">
+
+      ${preview}
+    </div>
+  `;
+  }
+
   function deleteCurrentPage() {
     if (config.grids.length <= 1) return;
     config.grids.splice(gi, 1); gi = 0; ti = -1;
@@ -878,12 +908,26 @@
     render();
   };
   document.addEventListener("click", async (e) => {
-    const btn = e.target.closest(".fileBtn");
-    if (!btn) return;
-
+    let btn = null;
+    let filePath = null;
+    let selector = null;
+    if (e.target.closest(".fileImageBtn"))
+    {
+      btn = e.target.closest(".fileImageBtn");
+      filePath = await ipcRenderer.invoke('pickImage');
+      selector = "img";
+    }
+    else if (e.target.closest(".fileVideoBtn"))
+    {
+      btn = e.target.closest(".fileVideoBtn");
+      filePath = await ipcRenderer.invoke('pickVideo');
+      selector = "video";
+    }
+    else
+    {
+      return;
+    }
     const key = btn.dataset.key;
-
-    const filePath = await ipcRenderer.invoke('pickImage');
 
     if (!filePath) return;
 
@@ -892,10 +936,10 @@
     input.value = filePath;
 
     // update preview si existant
-    const img = btn.parentElement.querySelector("img");
+    const img = btn.parentElement.querySelector(selector);
     if (img) img.src = filePath;
     else {
-      const newImg = document.createElement("img");
+      const newImg = document.createElement(selector);
       newImg.src = filePath;
       newImg.style.maxWidth = "100px";
       newImg.style.maxHeight = "60px";

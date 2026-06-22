@@ -334,7 +334,7 @@ function placePanel() {
     panelWin = new BrowserWindow({
       x: d.bounds.x, y: d.bounds.y, width: d.bounds.width, height: d.bounds.height,
       frame: false, show: false, skipTaskbar: true, backgroundColor: '#000000',
-      webPreferences: { nodeIntegration: true, contextIsolation: false, webviewTag: true },
+      webPreferences: { nodeIntegration: true, contextIsolation: false, webviewTag: true, webSecurity: false},
     });
     panelWin.loadFile(path.join(__dirname, 'index.html'));
     panelWin.once('ready-to-show', () => {
@@ -352,7 +352,7 @@ function openConfigWindow() {
   const prim = screen.getPrimaryDisplay().bounds;
   configWin = new BrowserWindow({
     width: 1180, height: 760, x: prim.x + 80, y: prim.y + 60, title: 'open-quake Editor',
-    backgroundColor: '#11151c', webPreferences: { nodeIntegration: true, contextIsolation: false },
+    backgroundColor: '#11151c', webPreferences: { nodeIntegration: true, contextIsolation: false, webSecurity: false },
   });
   configWin.loadFile(path.join(__dirname, 'config.html'));
   configWin.on('closed', () => { configWin = null; });
@@ -531,6 +531,10 @@ app.whenReady().then(async () => {
   });
   ipcMain.handle('pickImage', async () => {
     const r = await dialog.showOpenDialog(configWin, { properties: ['openFile'], filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico', 'svg'] }, { name: 'All Files', extensions: ['*'] }] });
+    return (r.canceled || !r.filePaths.length) ? null : r.filePaths[0];
+  });
+  ipcMain.handle('pickVideo', async () => {
+    const r = await dialog.showOpenDialog(configWin, { properties: ['openFile'], filters: [{ name: 'Videos', extensions: ['mp4', 'webm', 'mov'] }, { name: 'All Files', extensions: ['*'] }] });
     return (r.canceled || !r.filePaths.length) ? null : r.filePaths[0];
   });
   ipcMain.handle('getAppIcon', (e, value) => getAppIconDataUrl(value));

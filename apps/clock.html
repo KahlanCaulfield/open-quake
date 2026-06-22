@@ -32,7 +32,13 @@
   }
 
   * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; overflow: hidden; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+  }
   body {
     background: var(--bg);
     background-image: var(--bg-image);
@@ -40,6 +46,15 @@
     color: var(--label);
     display: flex; align-items: center; justify-content: center;
     -webkit-user-select: none; user-select: none; cursor: default;
+  }
+  #bg-video {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 0;
+    background: blue;
+    object-fit: cover;
   }
 
   #clock { display: flex; align-items: center; gap: clamp(8px, 2.2vw, 48px); }
@@ -106,6 +121,7 @@
 </style>
 </head>
 <body>
+  <video id="bg-video" autoplay muted loop playsinline></video>
   <div id="clock"></div>
   <div id="corner"></div>
 
@@ -151,6 +167,7 @@
     if ('background_color_two' in p) s.background_color_two = p.background_color_two;
     if ('background_gradient_percent' in p) s.background_gradient_percent = p.background_gradient_percent;
     if ('background_image_file' in p) s.background_image_file = p.background_image_file;
+    if ('background_video_file' in p) s.background_video_file = p.background_video_file;
     return s;
   }
   function save() { try { localStorage.setItem('flipclock', JSON.stringify(settings)); } catch (e) {} }
@@ -199,7 +216,6 @@
     corner.style.display = settings.date ? 'block' : 'none';
     corner.innerHTML = settings.date ? '<span class="cdate" id="date"></span><span class="cdow" id="dow"></span>' : '';
     const r = document.documentElement.style;
-    console.log(settings.background_type);
     if(settings.background_type === 'background_solid')
     {
       r.setProperty('--bg-start', decodeURIComponent(settings.background_color_one));
@@ -213,10 +229,23 @@
     }
     else if(settings.background_type === 'background_image')
     {
-      console.log(settings.background_image_file);
-      console.log(decodeURIComponent(settings.background_image_file));
       const path = settings.background_image_file.replaceAll("\\", "/");
       r.setProperty("--bg-image", "url('file:///" + decodeURIComponent(path) + "')");
+      r.setProperty('--bg-start', "transparent");
+      r.setProperty('--bg-end', "transparent");
+    }
+    else if(settings.background_type === 'background_video')
+    {
+      const path = "file:///" + settings.background_video_file.replaceAll("\\", "/");
+      const el = document.getElementById("bg-video");
+      el.src = decodeURIComponent(path);
+      el.muted = true;
+      el.loop = true;
+      el.playsInline = true;
+      el.preload = "auto";
+      el.load();
+      el.play().catch(err => {
+        console.log("PLAY BLOCKED:", err)});
       r.setProperty('--bg-start', "transparent");
       r.setProperty('--bg-end', "transparent");
     }

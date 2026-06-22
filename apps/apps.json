@@ -70,6 +70,10 @@
               [
                 "background_image",
                 "Image"
+              ],
+              [
+                "background_video",
+                "Video"
               ]
             ]
           },
@@ -103,9 +107,18 @@
           {
             "key": "background_image_file",
             "label": "Background image",
-            "type": "file",
+            "type": "file_image",
             "visibleWhen": {
               "background_type": "background_image"
+            },
+            "default": ""
+          },
+          {
+            "key": "background_video_file",
+            "label": "Background video",
+            "type": "file_video",
+            "visibleWhen": {
+              "background_type": "background_video"
             },
             "default": ""
           }
