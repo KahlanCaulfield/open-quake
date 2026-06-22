@@ -52,8 +52,7 @@
         }
 
         body {
-            background: var(--bg);
-            background-image: var(--bg-image);
+            background-image: var(--bg), var(--bg-image);
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
             color: var(--label);
             display: flex;
@@ -70,7 +69,6 @@
             width: 100vw;
             height: 100vh;
             z-index: 0;
-            background: blue;
             object-fit: cover;
         }
 
@@ -541,10 +539,13 @@
         corner.style.display = settings.date ? 'block' : 'none';
         corner.innerHTML = settings.date ? '<span class="cdate" id="date"></span><span class="cdow" id="dow"></span>' : '';
         const r = document.documentElement.style;
+
+        resetBackground();
         if (settings.background_type === 'background_solid')
         {
             r.setProperty('--bg-start', decodeURIComponent(settings.background_color_one));
             r.setProperty('--bg-end', decodeURIComponent(settings.background_color_one));
+            r.setProperty('--bg-gradient', `50%`);
         }
         else if (settings.background_type === 'background_gradient')
         {
@@ -556,13 +557,12 @@
         {
             const path = settings.background_image_file.replaceAll("\\", "/");
             r.setProperty("--bg-image", "url('file:///" + decodeURIComponent(path) + "')");
-            r.setProperty('--bg-start', "transparent");
-            r.setProperty('--bg-end', "transparent");
         }
         else if (settings.background_type === 'background_video')
         {
             const path = "file:///" + settings.background_video_file.replaceAll("\\", "/");
             const el = document.getElementById("bg-video");
+            el.style.display = "flex";
             el.src = decodeURIComponent(path);
             el.muted = true;
             el.loop = true;
@@ -573,8 +573,6 @@
             {
                 console.log("PLAY BLOCKED:", err)
             });
-            r.setProperty('--bg-start', "transparent");
-            r.setProperty('--bg-end', "transparent");
         }
         for (const k in cards)
         {
@@ -583,6 +581,18 @@
         tick();
     }
 
+    function resetBackground()
+    {
+        const r = document.documentElement.style;
+        r.setProperty('--bg-start', 'rgba(0,0,0,0)');
+        r.setProperty('--bg-end', 'rgba(0,0,0,0)');
+        r.setProperty('--bg-image', '');
+        const video = document.getElementById("bg-video");
+        if(video)
+        {
+            video.style.display = "none";
+        }
+     }
     // ---- the flip ----
     function setCard(id, val)
     {
