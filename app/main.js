@@ -119,7 +119,7 @@ function appPageUrl(page) {
       let v = (o.key in opts) ? opts[o.key] : o.default;
       if (v == null || v === '') return null;
       if (o.type === 'bool') v = v ? '1' : '0';
-      return encodeURIComponent(o.key) + '=' + encodeURIComponent(v);
+      return encodeURIComponent(o.key) + '=' + encodeURIComponent(v); 
     }).filter(Boolean).join('&');
     return 'http://127.0.0.1:' + serverPort + '/' + def.id + (qs ? '?' + qs : '');
   }
@@ -128,9 +128,24 @@ function appPageUrl(page) {
   const hash = (def.options || []).map(o => {
     let v = (o.key in opts) ? opts[o.key] : o.default;
     if (o.type === 'bool') v = v ? '1' : '0';
+    if (o.type === 'section') {
+      return createSectionHash(o.options, opts);
+    }
     return encodeURIComponent(o.key) + '=' + encodeURIComponent(v);
   }).join('&');
   return pathToFileURL(file).href + (hash ? '#' + hash : '');
+}
+
+function createSectionHash(options, opts)
+{
+   return (options || []).map(o => {
+     let v = (o.key in opts) ? opts[o.key] : o.default;
+     if (o.type === 'bool') v = v ? '1' : '0';
+     if (o.type === 'section') {
+       return  createSectionHash(o.options);
+     }
+     return encodeURIComponent(o.key) + '=' + encodeURIComponent(v);
+   }).join('&');
 }
 function saveConfig() { try { fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2)); } catch (e) { console.log('config save error:', e.message); } }
 function activeGrid() { return config.grids.find(g => g.id === config.activeGridId) || config.grids[0] || { cols: 8, rows: 2, tiles: [] }; }
@@ -319,13 +334,13 @@ function placePanel() {
     panelWin = new BrowserWindow({
       x: d.bounds.x, y: d.bounds.y, width: d.bounds.width, height: d.bounds.height,
       frame: false, show: false, skipTaskbar: true, backgroundColor: '#000000',
-      webPreferences: { nodeIntegration: true, contextIsolation: false, webviewTag: true },
+      webPreferences: { nodeIntegration: true, contextIsolation: false, webviewTag: true, webSecurity: false},
     });
     panelWin.loadFile(path.join(__dirname, 'index.html'));
     panelWin.once('ready-to-show', () => {
       const dd = deviceDisplay() || d;
       panelWin.setBounds(dd.bounds); panelWin.setAlwaysOnTop(true); panelWin.show(); panelWin.focus();
-      setTimeout(() => panelWin.setAlwaysOnTop(false), 1500);
+      setTimeout(() => panelWin.setAlwaysOnTop(true, 'screen-saver'), 1500);
       pushToPanel();
       console.log('panel placed at', JSON.stringify(panelWin.getBounds()));
     });
@@ -337,7 +352,7 @@ function openConfigWindow() {
   const prim = screen.getPrimaryDisplay().bounds;
   configWin = new BrowserWindow({
     width: 1180, height: 760, x: prim.x + 80, y: prim.y + 60, title: 'open-quake Editor',
-    backgroundColor: '#11151c', webPreferences: { nodeIntegration: true, contextIsolation: false },
+    backgroundColor: '#11151c', webPreferences: { nodeIntegration: true, contextIsolation: false, webSecurity: false },
   });
   configWin.loadFile(path.join(__dirname, 'config.html'));
   configWin.on('closed', () => { configWin = null; });
@@ -516,6 +531,10 @@ app.whenReady().then(async () => {
   });
   ipcMain.handle('pickImage', async () => {
     const r = await dialog.showOpenDialog(configWin, { properties: ['openFile'], filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico', 'svg'] }, { name: 'All Files', extensions: ['*'] }] });
+    return (r.canceled || !r.filePaths.length) ? null : r.filePaths[0];
+  });
+  ipcMain.handle('pickVideo', async () => {
+    const r = await dialog.showOpenDialog(configWin, { properties: ['openFile'], filters: [{ name: 'Videos', extensions: ['mp4', 'webm', 'mov'] }, { name: 'All Files', extensions: ['*'] }] });
     return (r.canceled || !r.filePaths.length) ? null : r.filePaths[0];
   });
   ipcMain.handle('getAppIcon', (e, value) => getAppIconDataUrl(value));

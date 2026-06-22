@@ -1,13 +1,129 @@
 [
   {
+    "file": "clock.html",
     "id": "clock",
     "name": "Flip Clock",
-    "file": "clock.html",
     "options": [
-      { "key": "mode",    "label": "Mode",          "type": "select", "default": "24",   "choices": [["24", "24-hour"], ["12", "12-hour"]] },
-      { "key": "theme",   "label": "Theme",         "type": "select", "default": "dark", "choices": [["dark", "Dark"], ["classic", "Classic"]] },
-      { "key": "seconds", "label": "Show seconds",  "type": "bool",   "default": false },
-      { "key": "date",    "label": "Show date & day", "type": "bool", "default": true }
+      {
+        "key": "mode",
+        "label": "Mode",
+        "type": "select",
+        "default": "24",
+        "choices": [
+          [
+            "24",
+            "24-hour"
+          ],
+          [
+            "12",
+            "12-hour"
+          ]
+        ]
+      },
+      {
+        "key": "theme",
+        "label": "Theme",
+        "type": "select",
+        "default": "dark",
+        "choices": [
+          [
+            "dark",
+            "Dark"
+          ],
+          [
+            "classic",
+            "Classic"
+          ]
+        ]
+      },
+      {
+        "key": "seconds",
+        "label": "Show seconds",
+        "type": "bool",
+        "default": false
+      },
+      {
+        "key": "date",
+        "label": "Show date & day",
+        "type": "bool",
+        "default": true
+      },
+      {
+        "key": "advanced",
+        "label": "Advanced options",
+        "type": "section",
+        "options": [
+          {
+            "key": "background_type",
+            "label": "Background Type",
+            "type": "select",
+            "default": "background_solid",
+            "choices": [
+              [
+                "background_solid",
+                "Solid"
+              ],
+              [
+                "background_gradient",
+                "Gradient"
+              ],
+              [
+                "background_image",
+                "Image"
+              ],
+              [
+                "background_video",
+                "Video"
+              ]
+            ]
+          },
+          {
+            "key": "background_color_one",
+            "label": "Background Color",
+            "type": "color",
+            "visibleWhen": {
+              "background_type": ["background_solid", "background_gradient"]
+            },
+            "default": "#05080d"
+          },
+          {
+            "key": "background_color_two",
+            "label": "Background Color",
+            "type": "color",
+            "visibleWhen": {
+              "background_type": "background_gradient"
+            },
+            "default": "#05080d"
+          },
+          {
+            "key": "background_gradient_percent",
+            "label": "Background Gradient %",
+            "type": "int",
+            "visibleWhen": {
+              "background_type": "background_gradient"
+            },
+            "default": "70"
+          },
+          {
+            "key": "background_image_file",
+            "label": "Background image",
+            "type": "file_image",
+            "visibleWhen": {
+              "background_type": "background_image"
+            },
+            "default": ""
+          },
+          {
+            "key": "background_video_file",
+            "label": "Background video",
+            "type": "file_video",
+            "visibleWhen": {
+              "background_type": "background_video"
+            },
+            "default": ""
+          }
+        ]
+      }
     ]
   },
   {
