@@ -92,9 +92,9 @@ function migrateConfig(c)
         {
             if (!g.auth)
             {
-                g.auth = g.haToken ? {type: 'ha', token: g.haToken} : {type: 'none'};
+                g.auth = g['haToken'] ? {type: 'ha', token: g['haToken']} : {type: 'none'};
             }
-            delete g.haToken;
+            delete g['haToken'];
         }
     });
     return c;
@@ -103,7 +103,7 @@ function migrateConfig(c)
 // SystemView is a built-in localhost dashboard. Ensure the page exists and its url points at the
 // current (ephemeral) server port. Respect deletion: once injected, if the user removes it we don't
 // re-add it (tracked via config.sysviewInjected) — so deleting it sticks.
-function ensureSystemViewPage(port)
+async function ensureSystemViewPage(port)
 {
     const url = `http://127.0.0.1:${port}/`;
     if (!config.grids)
@@ -119,7 +119,7 @@ function ensureSystemViewPage(port)
             saveConfig();
             if (config.activeGridId === 'sysview')
             {
-                pushToPanel();
+                await pushToPanel();
             }
         }
         return;
@@ -187,12 +187,12 @@ async function getMusicTiles()
     return {cols: g.cols || 2, rows: g.rows || 2, tiles: resolved.tiles || []};
 }
 
-function onMusicLaunch(i)
+async function onMusicLaunch(i)
 {
     const g = activeGrid();
     if (g && g.kind === 'app' && g.app === 'music' && g.tiles && g.tiles[i])
     {
-        runAction(g.tiles[i]);
+        await runAction(g.tiles[i]);
         return true;
     }
     return false;
@@ -230,7 +230,7 @@ function appPageUrl(page)
     {
         return 'about:blank';
     }
-    if (def.served)
+    if (def['served'])
     {                                                          // served by the local server (live data, same-origin fetch, grid launch)
         const opts = page.options || {};                                         // pass options as a ?query (http keeps query strings; widgets like OWUI read them)
         const qs = (def.options || []).map(o =>
@@ -349,7 +349,7 @@ function imageFileToDataUrl(p)
         const buf = fs.readFileSync(p);
         const ext = path.extname(p).slice(1).toLowerCase();
         const mime = ext === 'svg' ? 'image/svg+xml' : (ext === 'jpg' || ext === 'jpeg') ? 'image/jpeg' : ext === 'ico' ? 'image/x-icon' : 'image/' + (ext || 'png');
-        return 'data:' + mime + ';base64,' + buf.toString('base64');
+        return 'data:' + mime + ';base64,' + buf.toString();
     } catch (e)
     {
         return null;
@@ -522,7 +522,7 @@ function fetchIconToCache(url)
     });
 }
 
-// On launch, delete cached URL-icon files that no tile references any more (orphaned when a tile's URL
+// On launch, delete cached URL-icon files that no tile references anymore (orphaned when a tile's URL
 // changed, the tile was deleted, or its icon type switched away from 'url'). Keyed by filename
 // (sha1(url)), so a cache file shared by several tiles with the same URL is kept while ANY tile uses it.
 function sweepIconCache()
@@ -616,8 +616,7 @@ async function getAppIconDataUrl(value)
     try
     {
         const p = await resolveAppPath(value);
-        if (!p)
-        {
+        if (typeof p !== 'string' || p.trim() === '') {
             return null;
         }
         const img = await app.getFileIcon(p, {size: 'large'});
@@ -649,7 +648,7 @@ function resolveAppPath(value)
     });
 }
 
-function runAction(a)
+async function runAction(a)
 {
     if (!a || !a.type)
     {
@@ -665,7 +664,7 @@ function runAction(a)
         switch (a.type)
         {
             case 'url':
-                shell.openExternal(a.value);
+                await shell.openExternal(a.value);
                 break;
             case 'app':
                 exec(`start "" "${a.value}"`, {windowsHide: true});
@@ -674,10 +673,10 @@ function runAction(a)
                 exec(a.value, {windowsHide: true});
                 break;
             case 'open':
-                shell.openPath(a.value);
+                await shell.openPath(a.value);
                 break;
             case 'page':
-                gotoGrid(a.value, true);
+                await gotoGrid(a.value, true);
                 if (rotateRunning)
                 {
                     scheduleRotation();
@@ -806,7 +805,7 @@ function fitPanel(reason)
         })());
 }
 
-function placePanel()
+async function placePanel()
 {
     if (monitorMode)
     {
@@ -825,8 +824,8 @@ function placePanel()
             frame: false, show: false, skipTaskbar: true, backgroundColor: '#000000',
             webPreferences: {nodeIntegration: true, contextIsolation: false, webviewTag: true, webSecurity: false},
         });
-        panelWin.loadFile(path.join(__dirname, 'index.html'));
-        panelWin.once('ready-to-show', () =>
+        await panelWin.loadFile(path.join(__dirname, 'index.html'));
+        panelWin.once('ready-to-show', async () =>
         {
             panelShown = true;
             panelWin.setAlwaysOnTop(true);
@@ -835,14 +834,14 @@ function placePanel()
             setTimeout(() => panelWin.setAlwaysOnTop(true, 'screen-saver'), 1500);
             fitPanel('ready-to-show');
             setTimeout(() => fitPanel('settle'), 400);   // external displays settle slowly — re-cover once geometry is final (no-op if already covering)
-            pushToPanel();
+            await pushToPanel();
         });
     }
     else
     {
         panelWin.show();
         fitPanel('replace');
-        pushToPanel();
+        await pushToPanel();
     }
 }
 
@@ -960,6 +959,10 @@ function releaseTouch()
         touchDown = false;
         try
         {
+            if (!robot)
+            {
+                return;
+            }
             robot.mouseToggle('up', 'left');
         } catch (e)
         {
@@ -1022,7 +1025,7 @@ function monitorKnob(k)
     }
 }
 
-function openConfigWindow()
+async function openConfigWindow()
 {
     if (configWin && !configWin.isDestroyed())
     {
@@ -1040,7 +1043,7 @@ function openConfigWindow()
         backgroundColor: '#11151c',
         webPreferences: {nodeIntegration: true, contextIsolation: false, webSecurity: false},
     });
-    configWin.loadFile(path.join(__dirname, 'config.html'));
+    await configWin.loadFile(path.join(__dirname, 'config.html'));
     configWin.on('closed', () =>
     {
         configWin = null;
@@ -1165,7 +1168,7 @@ function rotationList()
     return config.grids.filter(g => g.rotate && c.cats[pageCategory(g)]);
 }
 
-function gotoGrid(id, persist)
+async function gotoGrid(id, persist)
 {
     if (!config.grids.some(g => g.id === id))
     {
@@ -1176,17 +1179,17 @@ function gotoGrid(id, persist)
     {
         saveConfig();
     }
-    pushToPanel();
+    await pushToPanel();
 }
 
-function rotateTick()
+async function rotateTick()
 {
     const ids = rotationList().map(g => g.id);
     if (ids.length < 2)
     {
         return;
     }                                  // nothing to cycle through
-    gotoGrid(ids[(ids.indexOf(config.activeGridId) + 1) % ids.length], false);   // active not in list (-1) -> first
+    await gotoGrid(ids[(ids.indexOf(config.activeGridId) + 1) % ids.length], false);   // active not in list (-1) -> first
 }
 
 function scheduleRotation()
@@ -1200,9 +1203,9 @@ function scheduleRotation()
     {
         return;
     }
-    rotTimer = setTimeout(() =>
+    rotTimer = setTimeout(async () =>
     {
-        rotateTick();
+        await rotateTick();
         scheduleRotation();
     }, rotationCfg().interval * 1000);
 }
@@ -1276,7 +1279,7 @@ function trayMenu()
             click: () => toggleMonitorMode()
         },
         {
-            label: 'Re-place panel on device', enabled: !monitorMode, click: () =>
+            label: 'Re-place panel on device', enabled: !monitorMode, click: async () =>
             {
                 try
                 {
@@ -1284,7 +1287,7 @@ function trayMenu()
                 } catch (e)
                 {
                 }
-                placePanel();
+                await placePanel();
             }
         },
         {type: 'separator'},
@@ -1340,7 +1343,7 @@ if (!app.requestSingleInstanceLock())
 }
 else
 {
-    app.on('second-instance', () =>
+    app.on('second-instance', async () =>
     {
         try
         {
@@ -1348,7 +1351,7 @@ else
         } catch (e)
         {
         }
-        placePanel();
+        await placePanel();
         if (configWin && !configWin.isDestroyed())
         {
             configWin.show();
@@ -1356,7 +1359,7 @@ else
         }
         else
         {
-            openConfigWindow();
+            await openConfigWindow();
         }
     });
 
@@ -1375,7 +1378,7 @@ else
         {
             sysserver = require('./sysserver');
             serverPort = await sysserver.start({onMedia: mediaKey, onLaunch: onMusicLaunch, getMusicTiles});
-            ensureSystemViewPage(serverPort);
+            await ensureSystemViewPage(serverPort);
             ensureMusicPage();
             console.log('SystemView + Music on http://127.0.0.1:' + serverPort);
         } catch (e)
@@ -1492,7 +1495,7 @@ else
         // Dans main.js
         ipcMain.on('saveTileValue', (event, data) =>
         {
-            const gridIndex = config.activeGridIndex || 0;
+            const gridIndex = config['activeGridIndex'] || 0;
             if (config.grids && config.grids[gridIndex] && config.grids[gridIndex].tiles[data.index])
             {
                 config.grids[gridIndex].tiles[data.index].value = data.value;
@@ -1595,7 +1598,7 @@ else
             }
         });
 
-        placePanel();
+        await placePanel();
         if (rotationCfg().enabled)
         {
             setRotation(true);
@@ -1603,11 +1606,11 @@ else
         const ls = appSettings();
         if (firstRun || ls.launchMode === 'editor')
         {
-            openConfigWindow();
+            await openConfigWindow();
         }
         else if (ls.launchMode === 'minimized')
         {
-            openConfigWindow();
+            await openConfigWindow();
             if (configWin && !configWin.isDestroyed())
             {
                 configWin.minimize();

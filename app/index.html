@@ -1,5 +1,5 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
     <meta charset="utf-8"/>
     <style>
@@ -106,10 +106,10 @@
             display: flex;
             width: 100%;
             height: 100%;
-            align-items: stretch; /* Force les enfants à prendre toute la hauteur */
+            align-items: stretch;
             justify-content: space-between;
             overflow: hidden;
-            border-radius: 18px; /* Aligné avec les arrondis de tes tuiles */
+            border-radius: 18px;
         }
 
         .counter-center {
@@ -117,8 +117,8 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            flex: 1; /* Prend tout l'espace central disponible */
-            pointer-events: none; /* Le doigt traverse cette zone pour ne pas bloquer les clics */
+            flex: 1;
+            pointer-events: none;
         }
 
         .tile-counter .title {
@@ -129,33 +129,31 @@
         }
 
         .tile-counter .val {
-            font-size: 42px; /* Chiffre bien gros et lisible */
+            font-size: 42px;
             font-weight: 700;
             color: #fff;
         }
 
         .tile-counter button {
-            background: rgba(36, 58, 85, 0.3); /* Léger fond transparent */
+            background: rgba(36, 58, 85, 0.3);
             border: none;
             color: #dbe5f0;
-            width: 25%; /* Chaque bouton prend un quart de la largeur de la tuile */
-            font-size: 36px; /* Des gros "+" et "-" bien visibles */
+            width: 25%;
+            font-size: 36px;
             font-weight: bold;
             cursor: pointer;
             transition: background 0.1s;
         }
 
-        /* Effet visuel quand on clique à la souris (sur PC) */
         .tile-counter button:active {
             background: rgba(30, 111, 208, 0.6);
             color: #fff;
         }
 
-        /* Effet visuel quand on touche au doigt */
         .tile-counter button.btn-hit {
             background: rgba(43, 139, 255, 0.8) !important;
             color: #fff !important;
-            transition: none !important; /* Allumage instantané au toucher */
+            transition: none !important;
         }
 
         #vol {
@@ -292,6 +290,7 @@
             transform: scale(.96);
         }
     </style>
+    <title></title>
 </head>
 <body>
 <div id="stage">
@@ -462,7 +461,7 @@
             const d = document.createElement('div');
             const empty = !t || !t.type;
             d.className = 'tile' + (empty ? ' empty' : '') + ((w > 1 || h > 1) ? ' span' : '');
-            d.dataset.i = i;
+            d.dataset.i = i.toString();
             d.style.gridColumn = `${col + 1} / span ${w}`;
             d.style.gridRow = `${row + 1} / span ${h}`;
             if (t && t.type === 'counter')
@@ -481,7 +480,7 @@
             }
             else
             {
-                const ic = t.iconSrc ? `<img class="ic-img" src="${t.iconSrc}">` : `<div class="ic">${t.icon || '▫️'}</div>`;
+                const ic = t.iconSrc ? `<img class="ic-img" alt="" src="${t.iconSrc}">` : `<div class="ic">${t.icon || '▫️'}</div>`;
                 d.innerHTML = empty ? '' : `${ic}<div class="lb">${t.label || ''}</div>`;
             }
             grid.appendChild(d);
@@ -828,7 +827,7 @@
     ipcRenderer.on('knob', (e, k) =>
     {
         if (introOpen)
-        {   // teach by doing: a double-click clears the intro and opens the page menu; ignore other knob input
+        {   // teach by doing: a double click clears the intro and opens the page menu; ignore other knob input
             if (k.type === 'press' && k.index === 2)
             {
                 dismissIntro();
@@ -904,12 +903,12 @@
         const t = cfg.tiles[idx];
         let count = parseInt(t.value) || 0;
         count += delta;
-        t.value = count;
+        t.value = count.toString();
 
         const el = grid.querySelector(`[data-i="${idx}"] .val`);
         if (el)
         {
-            el.textContent = count;
+            el.textContent = count.toString();
         }
         ipcRenderer.send('saveTileValue', {gridId: cfg.id, index: idx, value: String(count)});
     }
@@ -917,9 +916,9 @@
     function flashVol(t)
     {
         vol.textContent = t;
-        vol.style.opacity = 1;
+        vol.style.opacity = String(1);
         clearTimeout(volT);
-        volT = setTimeout(() => vol.style.opacity = 0, 500);
+        volT = setTimeout(() => vol.style.opacity = String(0), 500);
     }
 </script>
 </body>

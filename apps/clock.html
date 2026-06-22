@@ -7,7 +7,14 @@
     <style>
         /* ---- theme ---- */
         :root {
+            --bg-start: #ffffff;
+            --bg-end: #ffffff;
+            --bg-gradient: 50%;
             --bg-image: none;
+            --ch: 0 ch;
+            --cw: 0 ch;
+            --cw2: 0 ch;
+            --fs: 10;
             --bg: radial-gradient(120% 160% at 50% 0%, var(--bg-start) 0%, var(--bg-end) var(--bg-gradient));
             --card-top: #20242c;
             --card-bottom: #141821;
@@ -397,7 +404,7 @@
         let s = {...defaults};
         try
         {
-            Object.assign(s, JSON.parse(localStorage.getItem('flipclock') || '{}'));
+            Object.assign(s, JSON.parse(localStorage.getItem('FlipClock') || '{}'));
         } catch (e)
         {
         }
@@ -449,7 +456,7 @@
     {
         try
         {
-            localStorage.setItem('flipclock', JSON.stringify(settings));
+            localStorage.setItem('FlipClock', JSON.stringify(settings));
         } catch (e)
         {
         }
@@ -510,7 +517,7 @@
         {                              // one wide hour card with an AM/PM badge
             const g = document.createElement('div');
             g.className = 'group';
-            const hc = card('hh');
+            let hc = card('hh');
             hc.classList.add('wide');
             const ap = document.createElement('div');
             ap.className = 'ampm';
@@ -573,7 +580,7 @@
         {
             cards[k].dataset.v = '';
         }           // force a fresh first paint
-        tick(true);
+        tick();
     }
 
     // ---- the flip ----
@@ -617,7 +624,7 @@
         }, {once: true});
     }
 
-    function tick(force)
+    function tick()
     {
         const now = new Date();
         const h = now.getHours();

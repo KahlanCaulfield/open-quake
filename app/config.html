@@ -575,7 +575,8 @@
         {
             el.onchange = e =>
             {
-                g.rotate = e.target.checked;
+                console.log("++" + e.target['checked']);
+                g.rotate = e.target['checked'];
                 markDirty();
             };
         }
@@ -699,14 +700,14 @@
       </div>`;
         document.getElementById('gName').oninput = e =>
         {
-            g.name = e.target.value;
+            g.name = e.target['value'];
             renderGrids();
             markDirty();
         };
         document.getElementById('gCols').onchange = e =>
         {
             clearAllMerges(g);
-            g.cols = Math.max(1, Math.min(12, +e.target.value || 1));
+            g.cols = Math.max(1, Math.min(12, +e.target['value'] || 1));
             ensureTiles(g);
             ti = -1;
             selEnd = -1;
@@ -716,7 +717,7 @@
         document.getElementById('gRows').onchange = e =>
         {
             clearAllMerges(g);
-            g.rows = Math.max(1, Math.min(6, +e.target.value || 1));
+            g.rows = Math.max(1, Math.min(6, +e.target['value'] || 1));
             ensureTiles(g);
             ti = -1;
             selEnd = -1;
@@ -1065,14 +1066,14 @@
     </div>`;
         document.getElementById('tLabel').oninput = e =>
         {
-            t.label = e.target.value;
+            t.label = e.target['value'];
             renderTiles();
             markDirty();
         };
         document.getElementById('tType').onchange = e =>
         {
             const prev = t.type;
-            t.type = e.target.value;
+            t.type = e.target['value'];
             if (t.type === 'page' || prev === 'page')
             {
                 t.value = '';
@@ -1085,7 +1086,7 @@
         {
             tv.oninput = e =>
             {
-                t.value = e.target.value;
+                t.value = e.target['value'];
                 renderTiles();
                 renderIconPane();
                 markDirty();
@@ -1101,7 +1102,7 @@
             }
             tp.onchange = e =>
             {
-                t.value = e.target.value;
+                t.value = e.target['value'];
                 renderTiles();
                 markDirty();
             };
@@ -1161,7 +1162,7 @@
     </div>`;
         el.querySelectorAll('input[name=ic]').forEach(r => r.onchange = e =>
         {
-            t.iconType = e.target.value;
+            t.iconType = e.target['value'];
             renderIconPane();
             renderTiles();
             markDirty();
@@ -1183,7 +1184,7 @@
             el.innerHTML = `<input id="tIcon" value="${esc(t.icon)}" placeholder="paste an emoji, e.g. 🌐">`;
             document.getElementById('tIcon').oninput = e =>
             {
-                t.icon = e.target.value;
+                t.icon = e.target['value'];
                 renderTiles();
                 renderIconPreview(t);
                 markDirty();
@@ -1403,25 +1404,25 @@
       <p class="hint">Shown full-screen on the panel. Knob scrolls · tap clicks · double-click the knob returns to the page selector.</p>`;
         document.getElementById('gName').oninput = e =>
         {
-            g.name = e.target.value;
+            g.name = e.target['value'];
             renderGrids();
             markDirty();
         };
         document.getElementById('gUrl').oninput = e =>
         {
-            g.url = e.target.value;
+            g.url = e.target['value'];
             markDirty();
         };
         document.getElementById('gAuth').onchange = e =>
         {
-            setAuthType(g, e.target.value);
+            setAuthType(g, e.target['value']);
             renderAuthFields(g);
             markDirty();
         };
         document.getElementById('gDelete').onclick = deleteCurrentPage;
         document.getElementById('gExt').onchange = e =>
         {
-            g.linksExternal = e.target.checked;
+            g.linksExternal = e.target['checked'];
             markDirty();
         };
         wireRotRow(g);
@@ -1464,7 +1465,7 @@
             el.innerHTML = `<div class="row"><label>Token</label>${secretInput(g.auth.token, 'id="aTok" placeholder="long-lived access token"')}</div>`;
             document.getElementById('aTok').oninput = e =>
             {
-                g.auth.token = e.target.value;
+                g.auth.token = e.target['value'];
                 markDirty();
             };
             hint.innerHTML = '<b>Home Assistant</b> (no keyboard on the panel): profile → Security → Long-Lived Access Tokens → Create, paste above. The panel signs in automatically.';
@@ -1475,12 +1476,12 @@
         <div class="row"><label>Password</label>${secretInput(g.auth.pass, 'id="aPass"')}</div>`;
             document.getElementById('aUser').oninput = e =>
             {
-                g.auth.user = e.target.value;
+                g.auth.user = e.target['value'];
                 markDirty();
             };
             document.getElementById('aPass').oninput = e =>
             {
-                g.auth.pass = e.target.value;
+                g.auth.pass = e.target['value'];
                 markDirty();
             };
             hint.innerHTML = 'Sent as an HTTP Basic Auth header to the dashboard host (common behind nginx / a reverse proxy).';
@@ -1491,12 +1492,12 @@
                 + `<div class="row"><button id="aHAdd">+ header</button></div>`;
             el.querySelectorAll('.aHN').forEach(x => x.oninput = e =>
             {
-                g.auth.headers[+e.target.dataset.i].name = e.target.value;
+                g.auth.headers[+e.target.dataset.i].name = e.target['value'];
                 markDirty();
             });
             el.querySelectorAll('.aHV').forEach(x => x.oninput = e =>
             {
-                g.auth.headers[+e.target.dataset.i].value = e.target.value;
+                g.auth.headers[+e.target.dataset.i].value = e.target['value'];
                 markDirty();
             });
             el.querySelectorAll('.aHD').forEach(b => b.onclick = e =>
@@ -1550,13 +1551,13 @@
       <p class="hint">${def ? esc(def.name) + ' runs locally and shows full-screen on the panel.' : 'Pick an app, then set its options below.'}</p>`;
         document.getElementById('gName').oninput = e =>
         {
-            g.name = e.target.value;
+            g.name = e.target['value'];
             renderGrids();
             markDirty();
         };
         document.getElementById('gApp').onchange = e =>
         {
-            setApp(g, e.target.value);
+            setApp(g, e.target['value']);
             render();
             markDirty();
         };
@@ -1660,7 +1661,7 @@
         el.querySelectorAll('.aopt').forEach(inp => inp.onchange = e =>
         {
             const o = (def.options || []).find(x => x.key === e.target.dataset.key);
-            g.options[e.target.dataset.key] = (o && o.type === 'bool') ? e.target.checked : e.target.value;
+            g.options[e.target.dataset.key] = (o && o.type === 'bool') ? e.target['checked'] : e.target['value'];
             updateVisibility(g);
             markDirty();
         });
@@ -1799,7 +1800,7 @@
     function renderTypeFileImage(key, value)
     {
         const preview = value
-            ? `<img class="previewBackground" src="${value}" style="max-width:100px;max-height:60px;border-radius:6px;margin-top:6px;">`
+            ? `<img class="previewBackground" alt="" src="${value}" style="max-width:100px;max-height:60px;border-radius:6px;margin-top:6px;">`
             : '';
 
         return `
@@ -2036,7 +2037,7 @@
         if (tab === 'software')
         {
             document.getElementById('sLaunch').value = s.launchMode;
-            document.getElementById('sLaunch').onchange = e => setS('launchMode', e.target.value);
+            document.getElementById('sLaunch').onchange = e => setS('launchMode', e.target['value']);
             const saveRot = r =>
             {
                 if (!config.settings)
@@ -2053,32 +2054,32 @@
             document.getElementById('sRot').onchange = e =>
             {
                 const r = currentRot();
-                r.enabled = e.target.checked;
+                r.enabled = e.target['checked'];
                 saveRot(r);
             };
             document.getElementById('sRotInt').onchange = e =>
             {
                 const r = currentRot();
-                r.interval = Math.max(5, Math.min(3600, parseInt(e.target.value, 10) || 30));
-                e.target.value = r.interval;
+                r.interval = Math.max(5, Math.min(3600, parseInt(e.target['value'], 10) || 30));
+                e.target['value'] = r.interval;
                 saveRot(r);
             };
             document.getElementById('sRotG').onchange = e =>
             {
                 const r = currentRot();
-                r.cats.grids = e.target.checked;
+                r.cats.grids = e.target['checked'];
                 saveRot(r);
             };
             document.getElementById('sRotD').onchange = e =>
             {
                 const r = currentRot();
-                r.cats.dashboards = e.target.checked;
+                r.cats.dashboards = e.target['checked'];
                 saveRot(r);
             };
             document.getElementById('sRotA').onchange = e =>
             {
                 const r = currentRot();
-                r.cats.apps = e.target.checked;
+                r.cats.apps = e.target['checked'];
                 saveRot(r);
             };
         }
@@ -2097,27 +2098,27 @@
             };
             document.getElementById('sEffect').value = String(L.effect);
             document.getElementById('sMic').checked = !!s.micOnLaunch;
-            document.getElementById('sMic').onchange = e => setS('micOnLaunch', e.target.checked);
-            document.getElementById('sEffect').onchange = e => live({effect: parseInt(e.target.value, 10)});
+            document.getElementById('sMic').onchange = e => setS('micOnLaunch', e.target['checked']);
+            document.getElementById('sEffect').onchange = e => live({effect: parseInt(e.target['value'], 10)});
             const cv = document.getElementById('sColorVal');
             document.getElementById('sColor').onchange = e =>
             {
-                const {hue, sat} = hexToHsv(e.target.value);
+                const {hue, sat} = hexToHsv(e.target['value']);
                 cv.textContent = `H${hue} S${sat}`;
                 live({hue, sat});
             };
             const bv = document.getElementById('sBrightVal');
             document.getElementById('sBright').oninput = e =>
             {
-                bv.textContent = e.target.value;
+                bv.textContent = e.target['value'];
             };
-            document.getElementById('sBright').onchange = e => live({brightness: parseInt(e.target.value, 10)});
+            document.getElementById('sBright').onchange = e => live({brightness: parseInt(e.target['value'], 10)});
             const sv = document.getElementById('sSpeedVal');
             document.getElementById('sSpeed').oninput = e =>
             {
-                sv.textContent = e.target.value;
+                sv.textContent = e.target['value'];
             };
-            document.getElementById('sSpeed').onchange = e => live({speed: parseInt(e.target.value, 10)});
+            document.getElementById('sSpeed').onchange = e => live({speed: parseInt(e.target['value'], 10)});
             document.getElementById('sSaveLed').onclick = async () =>
             {
                 const msg = document.getElementById('sSaveLedMsg');
@@ -2140,8 +2141,8 @@
             };
             document.getElementById('sMonTurn').value = mon.knobTurn;
             document.getElementById('sMonTap').value = mon.knobTap;
-            document.getElementById('sMonTurn').onchange = e => saveMon({knobTurn: e.target.value});
-            document.getElementById('sMonTap').onchange = e => saveMon({knobTap: e.target.value});
+            document.getElementById('sMonTurn').onchange = e => saveMon({knobTurn: e.target['value']});
+            document.getElementById('sMonTap').onchange = e => saveMon({knobTap: e.target['value']});
         }
     }
 
