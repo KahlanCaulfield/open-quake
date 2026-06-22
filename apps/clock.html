@@ -161,7 +161,7 @@
 
         .card .flap.bottom {
             bottom: 0;
-            transform-origin: 50% 0%;
+            transform-origin: 50% 0;
             transform: rotateX(90deg);
             z-index: 2;
         }
@@ -369,52 +369,97 @@
     const defaults = {mode: '24', theme: 'dark', seconds: false, date: true};
     // Read params from the full href — robust for file:// (where location.search is often empty
     // in an Electron webview). Accepts both ?query and #hash forms.
-    function readParams() {
+    function readParams()
+    {
         const out = {};
-        try {
+        try
+        {
             const u = new URL(location.href);
-            u.searchParams.forEach((v, k) => {
+            u.searchParams.forEach((v, k) =>
+            {
                 out[k] = v;
             });
-            if (u.hash.length > 1) new URLSearchParams(u.hash.slice(1)).forEach((v, k) => {
-                out[k] = v;
-            });
-        } catch (e) {
+            if (u.hash.length > 1)
+            {
+                new URLSearchParams(u.hash.slice(1)).forEach((v, k) =>
+                {
+                    out[k] = v;
+                });
+            }
+        } catch (e)
+        {
         }
         return out;
     }
 
-    function load() {
+    function load()
+    {
         let s = {...defaults};
-        try {
+        try
+        {
             Object.assign(s, JSON.parse(localStorage.getItem('flipclock') || '{}'));
-        } catch (e) {
+        } catch (e)
+        {
         }
         const p = readParams();
-        if ('mode' in p) s.mode = p.mode === '12' ? '12' : '24';
-        if ('theme' in p) s.theme = p.theme === 'classic' ? 'classic' : 'dark';
-        if ('seconds' in p) s.seconds = p.seconds === '1' || p.seconds === 'true';
-        if ('date' in p) s.date = !(p.date === '0' || p.date === 'false');
-        if ('background_type' in p) s.background_type = p.background_type;
-        if ('background_color_one' in p) s.background_color_one = p.background_color_one;
-        if ('background_color_two' in p) s.background_color_two = p.background_color_two;
-        if ('background_gradient_percent' in p) s.background_gradient_percent = p.background_gradient_percent;
-        if ('background_image_file' in p) s.background_image_file = p.background_image_file;
-        if ('background_video_file' in p) s.background_video_file = p.background_video_file;
+        if ('mode' in p)
+        {
+            s.mode = p.mode === '12' ? '12' : '24';
+        }
+        if ('theme' in p)
+        {
+            s.theme = p.theme === 'classic' ? 'classic' : 'dark';
+        }
+        if ('seconds' in p)
+        {
+            s.seconds = p.seconds === '1' || p.seconds === 'true';
+        }
+        if ('date' in p)
+        {
+            s.date = !(p.date === '0' || p.date === 'false');
+        }
+        if ('background_type' in p)
+        {
+            s.background_type = p.background_type;
+        }
+        if ('background_color_one' in p)
+        {
+            s.background_color_one = p.background_color_one;
+        }
+        if ('background_color_two' in p)
+        {
+            s.background_color_two = p.background_color_two;
+        }
+        if ('background_gradient_percent' in p)
+        {
+            s.background_gradient_percent = p.background_gradient_percent;
+        }
+        if ('background_image_file' in p)
+        {
+            s.background_image_file = p.background_image_file;
+        }
+        if ('background_video_file' in p)
+        {
+            s.background_video_file = p.background_video_file;
+        }
         return s;
     }
 
-    function save() {
-        try {
+    function save()
+    {
+        try
+        {
             localStorage.setItem('flipclock', JSON.stringify(settings));
-        } catch (e) {
+        } catch (e)
+        {
         }
     }
 
     let settings = load();
 
     // ---- sizing: cards scale to viewport; smaller when seconds shown ----
-    function applySizing() {
+    function applySizing()
+    {
         const r = document.documentElement.style;
         const ch = settings.seconds ? 50 : 64;          // card height in vh
         r.setProperty('--ch', ch + 'vh');
@@ -426,7 +471,8 @@
     // ---- build the DOM ----
     const clock = $('#clock');
     let cards = {};                                    // id -> card element
-    function card(id) {
+    function card(id)
+    {
         const c = document.createElement('div');
         c.className = 'card';
         c.dataset.v = '';
@@ -438,26 +484,30 @@
         return c;
     }
 
-    function group(ids) {
+    function group(ids)
+    {
         const g = document.createElement('div');
         g.className = 'group';
         ids.forEach(id => g.appendChild(card(id)));
         return g;
     }
 
-    function sep() {
+    function sep()
+    {
         const s = document.createElement('div');
         s.className = 'sep';
         s.innerHTML = '<i></i><i></i>';
         return s;
     }
 
-    function build() {
+    function build()
+    {
         document.body.classList.toggle('classic', settings.theme === 'classic');
         applySizing();
         cards = {};
         clock.innerHTML = '';
-        if (settings.mode === '12') {                              // one wide hour card with an AM/PM badge
+        if (settings.mode === '12')
+        {                              // one wide hour card with an AM/PM badge
             const g = document.createElement('div');
             g.className = 'group';
             const hc = card('hh');
@@ -468,12 +518,15 @@
             hc.appendChild(ap);
             g.appendChild(hc);
             clock.appendChild(g);
-        } else {                                                    // two hour cards (00-23), no AM/PM
+        }
+        else
+        {                                                    // two hour cards (00-23), no AM/PM
             clock.appendChild(group(['h0', 'h1']));
         }
         clock.appendChild(sep());
         clock.appendChild(group(['m0', 'm1']));
-        if (settings.seconds) {
+        if (settings.seconds)
+        {
             clock.appendChild(sep());
             clock.appendChild(group(['s0', 's1']));
         }
@@ -481,19 +534,26 @@
         corner.style.display = settings.date ? 'block' : 'none';
         corner.innerHTML = settings.date ? '<span class="cdate" id="date"></span><span class="cdow" id="dow"></span>' : '';
         const r = document.documentElement.style;
-        if (settings.background_type === 'background_solid') {
+        if (settings.background_type === 'background_solid')
+        {
             r.setProperty('--bg-start', decodeURIComponent(settings.background_color_one));
             r.setProperty('--bg-end', decodeURIComponent(settings.background_color_one));
-        } else if (settings.background_type === 'background_gradient') {
+        }
+        else if (settings.background_type === 'background_gradient')
+        {
             r.setProperty('--bg-start', decodeURIComponent(settings.background_color_one));
             r.setProperty('--bg-end', decodeURIComponent(settings.background_color_two));
             r.setProperty('--bg-gradient', `${decodeURIComponent(settings.background_gradient_percent)}%`);
-        } else if (settings.background_type === 'background_image') {
+        }
+        else if (settings.background_type === 'background_image')
+        {
             const path = settings.background_image_file.replaceAll("\\", "/");
             r.setProperty("--bg-image", "url('file:///" + decodeURIComponent(path) + "')");
             r.setProperty('--bg-start', "transparent");
             r.setProperty('--bg-end', "transparent");
-        } else if (settings.background_type === 'background_video') {
+        }
+        else if (settings.background_type === 'background_video')
+        {
             const path = "file:///" + settings.background_video_file.replaceAll("\\", "/");
             const el = document.getElementById("bg-video");
             el.src = decodeURIComponent(path);
@@ -502,28 +562,40 @@
             el.playsInline = true;
             el.preload = "auto";
             el.load();
-            el.play().catch(err => {
+            el.play().catch(err =>
+            {
                 console.log("PLAY BLOCKED:", err)
             });
             r.setProperty('--bg-start', "transparent");
             r.setProperty('--bg-end', "transparent");
         }
-        for (const k in cards) cards[k].dataset.v = '';           // force a fresh first paint
+        for (const k in cards)
+        {
+            cards[k].dataset.v = '';
+        }           // force a fresh first paint
         tick(true);
     }
 
     // ---- the flip ----
-    function setCard(id, val) {
+    function setCard(id, val)
+    {
         const c = cards[id];
-        if (!c) return;
+        if (!c)
+        {
+            return;
+        }
         val = String(val);
-        if (c.dataset.v === val) return;
+        if (c.dataset.v === val)
+        {
+            return;
+        }
         const cur = c.dataset.v;
         c.dataset.v = val;
         const topD = c.querySelector('.half.top .d'), botD = c.querySelector('.half.bottom .d');
         const fTop = c.querySelector('.flap.top'), fBot = c.querySelector('.flap.bottom');
         const fTopD = fTop.querySelector('.d'), fBotD = fBot.querySelector('.d');
-        if (cur === '') {                                                              // first paint: no animation
+        if (cur === '')
+        {                                                              // first paint: no animation
             topD.textContent = val;
             botD.textContent = val;
             fTopD.textContent = val;
@@ -539,19 +611,27 @@
         void c.offsetWidth;             // reflow so the animation restarts
         fTop.classList.add('go');
         fBot.classList.add('go');
-        fBot.addEventListener('animationend', () => {
+        fBot.addEventListener('animationend', () =>
+        {
             botD.textContent = val;
         }, {once: true});
     }
 
-    function tick(force) {
+    function tick(force)
+    {
         const now = new Date();
         const h = now.getHours();
-        if (settings.mode === '12') {
+        if (settings.mode === '12')
+        {
             const ap = $('#ampm');
-            if (ap) ap.textContent = h < 12 ? 'AM' : 'PM';
+            if (ap)
+            {
+                ap.textContent = h < 12 ? 'AM' : 'PM';
+            }
             setCard('hh', String(h % 12 || 12));         // single hour card, 1-12 (no leading zero)
-        } else {
+        }
+        else
+        {
             const hh = String(h).padStart(2, '0');
             setCard('h0', hh[0]);
             setCard('h1', hh[1]);   // two zero-padded hour cards
@@ -559,33 +639,44 @@
         const mm = String(now.getMinutes()).padStart(2, '0');
         setCard('m0', mm[0]);
         setCard('m1', mm[1]);
-        if (settings.seconds) {
+        if (settings.seconds)
+        {
             const ss = String(now.getSeconds()).padStart(2, '0');
             setCard('s0', ss[0]);
             setCard('s1', ss[1]);
         }
-        if (settings.date) {
+        if (settings.date)
+        {
             const d = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`;
             const de = $('#date'), we = $('#dow');
-            if (de) de.textContent = d;
-            if (we) we.textContent = DOW[now.getDay()];
+            if (de)
+            {
+                de.textContent = d;
+            }
+            if (we)
+            {
+                we.textContent = DOW[now.getDay()];
+            }
         }
     }
 
     // ---- settings UI ----
-    function syncPanel() {
+    function syncPanel()
+    {
         document.querySelectorAll('[data-set]').forEach(b => b.classList.toggle('on', settings[b.dataset.set] === b.dataset.val));
         document.querySelectorAll('[data-toggle]').forEach(c => c.checked = !!settings[c.dataset.toggle]);
     }
 
     $('#gear').onclick = () => $('#panel').classList.toggle('open');
-    document.querySelectorAll('[data-set]').forEach(b => b.onclick = () => {
+    document.querySelectorAll('[data-set]').forEach(b => b.onclick = () =>
+    {
         settings[b.dataset.set] = b.dataset.val;
         save();
         build();
         syncPanel();
     });
-    document.querySelectorAll('[data-toggle]').forEach(c => c.onchange = () => {
+    document.querySelectorAll('[data-toggle]').forEach(c => c.onchange = () =>
+    {
         settings[c.dataset.toggle] = c.checked;
         save();
         build();
@@ -594,7 +685,8 @@
 
     build();
     syncPanel();
-    window.addEventListener('hashchange', () => {
+    window.addEventListener('hashchange', () =>
+    {
         settings = load();
         build();
         syncPanel();

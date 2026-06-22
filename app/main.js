@@ -22,9 +22,11 @@ const {pathToFileURL} = require('url');
 const HID = require('node-hid');
 const Aris68Connector = require(path.join(__dirname, '..', 'src', 'Aris68Connector'));
 let robot = null;
-try {
+try
+{
     robot = require('robotjs');
-} catch (e) {
+} catch (e)
+{
     console.log('robotjs unavailable (knob-volume off):', e.message);
 }
 
@@ -52,32 +54,46 @@ let config = loadConfig();
 let panelWin = null, configWin = null, tray = null;
 const dev = new Aris68Connector({hid: HID});
 
-function appSettings() {
+function appSettings()
+{
     return Object.assign({}, DEFAULT_SETTINGS, config.settings || {});
 }
 
 // User config lives in the OS user-data dir (writable even inside a packaged app). On first run it's
 // seeded from a previous dev config (app/config.json) if present, otherwise the bundled default.
-function loadConfig() {
-    try {
-        if (!fs.existsSync(CONFIG_PATH)) {
+function loadConfig()
+{
+    try
+    {
+        if (!fs.existsSync(CONFIG_PATH))
+        {
             firstRun = true;
             fs.mkdirSync(USER_DIR, {recursive: true});
             const seed = fs.existsSync(LEGACY_CONFIG_PATH) ? LEGACY_CONFIG_PATH : DEFAULT_CONFIG_PATH;
-            if (fs.existsSync(seed)) fs.copyFileSync(seed, CONFIG_PATH);
+            if (fs.existsSync(seed))
+            {
+                fs.copyFileSync(seed, CONFIG_PATH);
+            }
         }
         return migrateConfig(JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')));
-    } catch (e) {
+    } catch (e)
+    {
         console.log('config load error:', e.message);
         return {activeGridId: null, grids: []};
     }
 }
 
 // Normalize dashboard auth: fold the old per-page `haToken` into the typed `auth` object.
-function migrateConfig(c) {
-    (c.grids || []).forEach(g => {
-        if (g.kind === 'web') {
-            if (!g.auth) g.auth = g.haToken ? {type: 'ha', token: g.haToken} : {type: 'none'};
+function migrateConfig(c)
+{
+    (c.grids || []).forEach(g =>
+    {
+        if (g.kind === 'web')
+        {
+            if (!g.auth)
+            {
+                g.auth = g.haToken ? {type: 'ha', token: g.haToken} : {type: 'none'};
+            }
             delete g.haToken;
         }
     });
@@ -87,19 +103,31 @@ function migrateConfig(c) {
 // SystemView is a built-in localhost dashboard. Ensure the page exists and its url points at the
 // current (ephemeral) server port. Respect deletion: once injected, if the user removes it we don't
 // re-add it (tracked via config.sysviewInjected) — so deleting it sticks.
-function ensureSystemViewPage(port) {
+function ensureSystemViewPage(port)
+{
     const url = `http://127.0.0.1:${port}/`;
-    if (!config.grids) config.grids = [];
+    if (!config.grids)
+    {
+        config.grids = [];
+    }
     const existing = config.grids.find(g => g.id === 'sysview');
-    if (existing) {                                          // keep the user's name/rotate; just refresh the (dynamic) port
-        if (existing.url !== url) {
+    if (existing)
+    {                                          // keep the user's name/rotate; just refresh the (dynamic) port
+        if (existing.url !== url)
+        {
             existing.url = url;
             saveConfig();
-            if (config.activeGridId === 'sysview') pushToPanel();
+            if (config.activeGridId === 'sysview')
+            {
+                pushToPanel();
+            }
         }
         return;
     }
-    if (config.sysviewInjected) return;                      // user deleted it on purpose — leave it gone
+    if (config.sysviewInjected)
+    {
+        return;
+    }                      // user deleted it on purpose — leave it gone
     config.grids.push({id: 'sysview', name: 'System Monitor', kind: 'web', url, auth: {type: 'none'}, rotate: false});
     config.sysviewInjected = true;
     saveConfig();
@@ -108,11 +136,19 @@ function ensureSystemViewPage(port) {
 // The Music controller is a built-in APP page (kind:'app', app:'music') that embeds a programmable
 // 2x2 tile grid — edited in the editor exactly like Default/Media/Dev, its tiles launched via runAction.
 // Ensure one exists on first run; respect deletion thereafter (musicInjected gate).
-function ensureMusicPage() {
-    if (!config.grids) config.grids = [];
+function ensureMusicPage()
+{
+    if (!config.grids)
+    {
+        config.grids = [];
+    }
     let g = config.grids.find(x => x.id === 'music');
-    if (!g) {
-        if (config.musicInjected) return;                      // user deleted it on purpose — leave it gone
+    if (!g)
+    {
+        if (config.musicInjected)
+        {
+            return;
+        }                      // user deleted it on purpose — leave it gone
         g = {id: 'music'};
         config.grids.push(g);
         config.musicInjected = true;
@@ -122,9 +158,16 @@ function ensureMusicPage() {
     g.app = 'music';                         // (re)assert the app shape; migrates the old web-page form
     delete g.url;
     delete g.auth;
-    if (typeof g.cols !== 'number') g.cols = 2;
-    if (typeof g.rows !== 'number') g.rows = 2;
-    if (!Array.isArray(g.tiles) || !g.tiles.length) {
+    if (typeof g.cols !== 'number')
+    {
+        g.cols = 2;
+    }
+    if (typeof g.rows !== 'number')
+    {
+        g.rows = 2;
+    }
+    if (!Array.isArray(g.tiles) || !g.tiles.length)
+    {
         const def = loadApps().find(a => a.id === 'music');
         g.tiles = ((def && def.grid && def.grid.defaults) || []).map(t => Object.assign({}, t));
     }
@@ -133,60 +176,89 @@ function ensureMusicPage() {
 
 // The Music app's embedded grid is served to the page (resolved icons) and its taps launched, both
 // keyed to whichever music page is currently shown.
-async function getMusicTiles() {
+async function getMusicTiles()
+{
     const g = activeGrid();
-    if (!(g && g.kind === 'app' && g.app === 'music')) return {cols: 2, rows: 2, tiles: []};
+    if (!(g && g.kind === 'app' && g.app === 'music'))
+    {
+        return {cols: 2, rows: 2, tiles: []};
+    }
     const resolved = await resolveGridIcons(Object.assign({}, g, {kind: 'grid'}));   // resolve icons (force the tile path)
     return {cols: g.cols || 2, rows: g.rows || 2, tiles: resolved.tiles || []};
 }
 
-function onMusicLaunch(i) {
+function onMusicLaunch(i)
+{
     const g = activeGrid();
-    if (g && g.kind === 'app' && g.app === 'music' && g.tiles && g.tiles[i]) {
+    if (g && g.kind === 'app' && g.app === 'music' && g.tiles && g.tiles[i])
+    {
         runAction(g.tiles[i]);
         return true;
     }
     return false;
 }
 
-function hostMatches(a, b) {
-    try {
+function hostMatches(a, b)
+{
+    try
+    {
         return new URL(a).host === new URL(b).host;
-    } catch (e) {
+    } catch (e)
+    {
         return false;
     }
 }
 
 // Bundled local apps (apps/apps.json) — name, file, and an options schema the editor renders.
-function loadApps() {
-    try {
+function loadApps()
+{
+    try
+    {
         return JSON.parse(fs.readFileSync(path.join(APPS_DIR, 'apps.json'), 'utf8'));
-    } catch (e) {
+    } catch (e)
+    {
         console.log('apps manifest load error:', e.message);
         return [];
     }
 }
 
 // Build the file: URL for an app page, encoding its options as a #hash (file:// drops a ?query).
-function appPageUrl(page) {
+function appPageUrl(page)
+{
     const def = loadApps().find(a => a.id === page.app);
-    if (!def) return 'about:blank';
-    if (def.served) {                                                          // served by the local server (live data, same-origin fetch, grid launch)
+    if (!def)
+    {
+        return 'about:blank';
+    }
+    if (def.served)
+    {                                                          // served by the local server (live data, same-origin fetch, grid launch)
         const opts = page.options || {};                                         // pass options as a ?query (http keeps query strings; widgets like OWUI read them)
-        const qs = (def.options || []).map(o => {
+        const qs = (def.options || []).map(o =>
+        {
             let v = (o.key in opts) ? opts[o.key] : o.default;
-            if (v == null || v === '') return null;
-            if (o.type === 'bool') v = v ? '1' : '0';
+            if (v == null || v === '')
+            {
+                return null;
+            }
+            if (o.type === 'bool')
+            {
+                v = v ? '1' : '0';
+            }
             return encodeURIComponent(o.key) + '=' + encodeURIComponent(v);
         }).filter(Boolean).join('&');
         return 'http://127.0.0.1:' + serverPort + '/' + def.id + (qs ? '?' + qs : '');
     }
     const file = path.join(APPS_DIR, def.file);
     const opts = page.options || {};
-    const hash = (def.options || []).map(o => {
+    const hash = (def.options || []).map(o =>
+    {
         let v = (o.key in opts) ? opts[o.key] : o.default;
-        if (o.type === 'bool') v = v ? '1' : '0';
-        if (o.type === 'section') {
+        if (o.type === 'bool')
+        {
+            v = v ? '1' : '0';
+        }
+        if (o.type === 'section')
+        {
             return createSectionHash(o.options, opts);
         }
         return encodeURIComponent(o.key) + '=' + encodeURIComponent(v);
@@ -194,67 +266,92 @@ function appPageUrl(page) {
     return pathToFileURL(file).href + (hash ? '#' + hash : '');
 }
 
-function createSectionHash(options, opts) {
-    return (options || []).map(o => {
+function createSectionHash(options, opts)
+{
+    return (options || []).map(o =>
+    {
         let v = (o.key in opts) ? opts[o.key] : o.default;
-        if (o.type === 'bool') v = v ? '1' : '0';
-        if (o.type === 'section') {
+        if (o.type === 'bool')
+        {
+            v = v ? '1' : '0';
+        }
+        if (o.type === 'section')
+        {
             return createSectionHash(o.options);
         }
         return encodeURIComponent(o.key) + '=' + encodeURIComponent(v);
     }).join('&');
 }
 
-function saveConfig() {
-    try {
+function saveConfig()
+{
+    try
+    {
         fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
-    } catch (e) {
+    } catch (e)
+    {
         console.log('config save error:', e.message);
     }
 }
 
-function activeGrid() {
+function activeGrid()
+{
     return config.grids.find(g => g.id === config.activeGridId) || config.grids[0] || {cols: 8, rows: 2, tiles: []};
 }
 
-function gridList() {
+function gridList()
+{
     return config.grids.map(g => ({id: g.id, name: g.name}));
 }
 
 // Tell the local server which served page is on screen so it runs only that page's poller
 // (SystemView metrics / Music now-playing) and idles the rest — no background polling while hidden.
-function syncPollers(g) {
-    if (!sysserver) return;
+function syncPollers(g)
+{
+    if (!sysserver)
+    {
+        return;
+    }
     const which = monitorMode ? null                                  // panel hidden (monitor mode) -> no page is visible, idle everything
         : (g && g.id === 'sysview') ? 'sysview'
             : (g && g.kind === 'app' && g.app === 'music') ? 'music'
                 : null;
-    try {
+    try
+    {
         sysserver.setActivePage(which);
-    } catch (e) {
+    } catch (e)
+    {
     }
 }
 
-async function pushToPanel() {
-    if (panelWin && !panelWin.isDestroyed()) {
+async function pushToPanel()
+{
+    if (panelWin && !panelWin.isDestroyed())
+    {
         const g = activeGrid();
         syncPollers(g);                                                // run only the poller the shown page needs (before the webview reloads, so it primes)
         panelWin.webContents.send('grid', await resolveGridIcons(g));
         panelWin.webContents.send('gridList', {grids: gridList(), activeId: config.activeGridId});
         pushRotationState();
-        if (!config.introShown) panelWin.webContents.send('intro');   // one-time "double-click the knob" overlay
+        if (!config.introShown)
+        {
+            panelWin.webContents.send('intro');
+        }   // one-time "double-click the knob" overlay
     }
 }
 
 // Read a local image file into a data: URL so it renders in ANY panel page — including the http-served
 // app pages (Music), which (unlike the native grid) cannot load file:// images.
-function imageFileToDataUrl(p) {
-    try {
+function imageFileToDataUrl(p)
+{
+    try
+    {
         const buf = fs.readFileSync(p);
         const ext = path.extname(p).slice(1).toLowerCase();
         const mime = ext === 'svg' ? 'image/svg+xml' : (ext === 'jpg' || ext === 'jpeg') ? 'image/jpeg' : ext === 'ico' ? 'image/x-icon' : 'image/' + (ext || 'png');
         return 'data:' + mime + ';base64,' + buf.toString('base64');
-    } catch (e) {
+    } catch (e)
+    {
         return null;
     }
 }
@@ -262,29 +359,51 @@ function imageFileToDataUrl(p) {
 // Detect the real image format from the file's magic bytes. Servers sometimes mislabel content-type
 // (e.g. clipartmax serves a JPEG as image/png), so we trust the bytes — the cached file needs the TRUE
 // extension because imageFileToDataUrl derives the data-URL mime from the extension at render time.
-function imageInfoFromBytes(buf) {
-    if (buf.length >= 3 && buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF) return {
-        mime: 'image/jpeg',
-        ext: 'jpg'
-    };
-    if (buf.length >= 8 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47) return {
-        mime: 'image/png',
-        ext: 'png'
-    };
-    if (buf.length >= 4 && buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46) return {
-        mime: 'image/gif',
-        ext: 'gif'
-    };
-    if (buf.length >= 12 && buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46 && buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50) return {
-        mime: 'image/webp',
-        ext: 'webp'
-    };
-    if (buf.length >= 2 && buf[0] === 0x42 && buf[1] === 0x4D) return {mime: 'image/bmp', ext: 'bmp'};
-    if (buf.length >= 4 && buf[0] === 0x00 && buf[1] === 0x00 && buf[2] === 0x01 && buf[3] === 0x00) return {
-        mime: 'image/x-icon',
-        ext: 'ico'
-    };
-    if (buf.slice(0, 512).toString('utf8').toLowerCase().includes('<svg')) return {mime: 'image/svg+xml', ext: 'svg'};
+function imageInfoFromBytes(buf)
+{
+    if (buf.length >= 3 && buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF)
+    {
+        return {
+            mime: 'image/jpeg',
+            ext: 'jpg'
+        };
+    }
+    if (buf.length >= 8 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47)
+    {
+        return {
+            mime: 'image/png',
+            ext: 'png'
+        };
+    }
+    if (buf.length >= 4 && buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46)
+    {
+        return {
+            mime: 'image/gif',
+            ext: 'gif'
+        };
+    }
+    if (buf.length >= 12 && buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46 && buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50)
+    {
+        return {
+            mime: 'image/webp',
+            ext: 'webp'
+        };
+    }
+    if (buf.length >= 2 && buf[0] === 0x42 && buf[1] === 0x4D)
+    {
+        return {mime: 'image/bmp', ext: 'bmp'};
+    }
+    if (buf.length >= 4 && buf[0] === 0x00 && buf[1] === 0x00 && buf[2] === 0x01 && buf[3] === 0x00)
+    {
+        return {
+            mime: 'image/x-icon',
+            ext: 'ico'
+        };
+    }
+    if (buf.slice(0, 512).toString('utf8').toLowerCase().includes('<svg'))
+    {
+        return {mime: 'image/svg+xml', ext: 'svg'};
+    }
     return null;
 }
 
@@ -295,32 +414,47 @@ function imageInfoFromBytes(buf) {
 const ICON_CACHE_DIR = path.join(USER_DIR, 'iconcache');
 const ICON_MAX_BYTES = 3 * 1024 * 1024;
 
-function fetchIconToCache(url) {
+function fetchIconToCache(url)
+{
     url = (url || '').trim();
-    return new Promise(resolve => {
-        if (!/^https?:\/\//i.test(url)) return resolve({ok: false, error: 'Only http(s) URLs are allowed.'});
+    return new Promise(resolve =>
+    {
+        if (!/^https?:\/\//i.test(url))
+        {
+            return resolve({ok: false, error: 'Only http(s) URLs are allowed.'});
+        }
         let req;
-        try {
+        try
+        {
             req = net.request({url, redirect: 'follow'});
-        } catch (e) {
+        } catch (e)
+        {
             return resolve({ok: false, error: 'That URL is not valid.'});
         }
         req.setHeader('User-Agent', 'open-quake/' + app.getVersion() + ' (+https://github.com/TeeJS/open-quake)');
         req.setHeader('Accept', 'image/*');
         let done = false;
-        const fail = msg => {
-            if (done) return;
+        const fail = msg =>
+        {
+            if (done)
+            {
+                return;
+            }
             done = true;
-            try {
+            try
+            {
                 req.abort();
-            } catch (e) {
+            } catch (e)
+            {
             }
             resolve({ok: false, error: msg});
         };
         req.on('error', () => fail('Could not reach that URL.'));
-        req.on('response', resp => {
+        req.on('response', resp =>
+        {
             const status = resp.statusCode;
-            if (status < 200 || status >= 300) {
+            if (status < 200 || status >= 300)
+            {
                 resp.resume();
                 return fail('Server returned HTTP ' + status + '.');
             }
@@ -328,38 +462,57 @@ function fetchIconToCache(url) {
             const ctype = String(Array.isArray(raw) ? raw[0] : (raw || '')).split(';')[0].trim().toLowerCase();
             // Reject obvious non-images on the header (avoid downloading an HTML page); allow image/*,
             // octet-stream, or a missing type — then confirm by sniffing the actual bytes below.
-            if (ctype && !ctype.startsWith('image/') && ctype !== 'application/octet-stream') {
+            if (ctype && !ctype.startsWith('image/') && ctype !== 'application/octet-stream')
+            {
                 resp.resume();
                 return fail('That URL is not an image (' + ctype + ').');
             }
             const chunks = [];
             let total = 0;
-            resp.on('data', d => {
+            resp.on('data', d =>
+            {
                 total += d.length;
-                if (total > ICON_MAX_BYTES) return fail('Image is too large (over 3 MB).');
+                if (total > ICON_MAX_BYTES)
+                {
+                    return fail('Image is too large (over 3 MB).');
+                }
                 chunks.push(d);
             });
             resp.on('error', () => fail('Error reading the image.'));
-            resp.on('end', () => {
-                if (done) return;
+            resp.on('end', () =>
+            {
+                if (done)
+                {
+                    return;
+                }
                 done = true;
                 const buf = Buffer.concat(chunks);
-                if (!buf.length) return resolve({ok: false, error: 'The image was empty.'});
+                if (!buf.length)
+                {
+                    return resolve({ok: false, error: 'The image was empty.'});
+                }
                 const info = imageInfoFromBytes(buf);   // trust the real bytes over the (sometimes wrong) content-type header
-                if (!info && !ctype.startsWith('image/')) return resolve({
-                    ok: false,
-                    error: "That URL doesn't appear to be an image."
-                });
+                if (!info && !ctype.startsWith('image/'))
+                {
+                    return resolve({
+                        ok: false,
+                        error: "That URL doesn't appear to be an image."
+                    });
+                }
                 const mime = info ? info.mime : ctype;
                 const ext = info ? info.ext : (ctype === 'image/jpeg' ? 'jpg' : ctype === 'image/svg+xml' ? 'svg' : (ctype === 'image/x-icon' || ctype === 'image/vnd.microsoft.icon') ? 'ico' : (ctype.slice(6).replace(/[^a-z0-9]/g, '') || 'png'));
-                try {
+                try
+                {
                     fs.mkdirSync(ICON_CACHE_DIR, {recursive: true});
-                } catch (e) {
+                } catch (e)
+                {
                 }
                 const file = path.join(ICON_CACHE_DIR, crypto.createHash('sha1').update(url).digest('hex').slice(0, 16) + '.' + ext);
-                try {
+                try
+                {
                     fs.writeFileSync(file, buf);
-                } catch (e) {
+                } catch (e)
+                {
                     return resolve({ok: false, error: 'Could not save the icon to the cache.'});
                 }
                 resolve({ok: true, cachePath: file, dataUrl: 'data:' + mime + ';base64,' + buf.toString('base64')});
@@ -372,50 +525,85 @@ function fetchIconToCache(url) {
 // On launch, delete cached URL-icon files that no tile references any more (orphaned when a tile's URL
 // changed, the tile was deleted, or its icon type switched away from 'url'). Keyed by filename
 // (sha1(url)), so a cache file shared by several tiles with the same URL is kept while ANY tile uses it.
-function sweepIconCache() {
+function sweepIconCache()
+{
     let files;
-    try {
+    try
+    {
         files = fs.readdirSync(ICON_CACHE_DIR);
-    } catch (e) {
+    } catch (e)
+    {
         return;
     }   // no cache dir yet -> nothing to sweep
     const used = new Set();
-    for (const g of (config.grids || [])) for (const t of (g.tiles || [])) {
-        if (t && t.iconType === 'url' && t.iconCache) used.add(path.basename(t.iconCache));
-    }
-    let removed = 0;
-    for (const f of files) {
-        if (!used.has(f)) {
-            try {
-                fs.unlinkSync(path.join(ICON_CACHE_DIR, f));
-                removed++;
-            } catch (e) {
+    for (const g of (config.grids || []))
+    {
+        for (const t of (g.tiles || []))
+        {
+            if (t && t.iconType === 'url' && t.iconCache)
+            {
+                used.add(path.basename(t.iconCache));
             }
         }
     }
-    if (removed) console.log('icon cache: removed ' + removed + ' orphaned file(s)');
+    let removed = 0;
+    for (const f of files)
+    {
+        if (!used.has(f))
+        {
+            try
+            {
+                fs.unlinkSync(path.join(ICON_CACHE_DIR, f));
+                removed++;
+            } catch (e)
+            {
+            }
+        }
+    }
+    if (removed)
+    {
+        console.log('icon cache: removed ' + removed + ' orphaned file(s)');
+    }
 }
 
 // Resolve app/image icons to a data: URL the panel renderer can draw (works in native + http pages).
-async function resolveGridIcons(grid) {
-    if (grid.kind === 'app') return {...grid, kind: 'web', url: appPageUrl(grid)};   // render the local app in the webview
-    if (grid.kind === 'web') return grid;   // dashboard page — no tiles to resolve
-    const tiles = await Promise.all((grid.tiles || []).map(async t => {
+async function resolveGridIcons(grid)
+{
+    if (grid.kind === 'app')
+    {
+        return {...grid, kind: 'web', url: appPageUrl(grid)};
+    }   // render the local app in the webview
+    if (grid.kind === 'web')
+    {
+        return grid;
+    }   // dashboard page — no tiles to resolve
+    const tiles = await Promise.all((grid.tiles || []).map(async t =>
+    {
         const out = {...t};
-        if (t.iconType === 'image' && t.iconImage) {
+        if (t.iconType === 'image' && t.iconImage)
+        {
             out.iconSrc = imageFileToDataUrl(t.iconImage);
-            if (!out.iconSrc) {
-                try {
+            if (!out.iconSrc)
+            {
+                try
+                {
                     out.iconSrc = pathToFileURL(t.iconImage).href;
-                } catch (e) {
+                } catch (e)
+                {
                 }
             }   // fallback
-        } else if (t.iconType === 'url' && t.iconCache) {
+        }
+        else if (t.iconType === 'url' && t.iconCache)
+        {
             out.iconSrc = imageFileToDataUrl(t.iconCache);
         }   // cached download -> data URL; null (gone) -> emoji fallback
-        else if (t.iconType === 'app') {
+        else if (t.iconType === 'app')
+        {
             const d = await getAppIconDataUrl(t.value);
-            if (d) out.iconSrc = d;
+            if (d)
+            {
+                out.iconSrc = d;
+            }
         }
         return out;
     }));
@@ -423,35 +611,59 @@ async function resolveGridIcons(grid) {
 }
 
 // Extract a program's own icon as a data: URL (best-effort; null if it can't be resolved).
-async function getAppIconDataUrl(value) {
-    try {
+async function getAppIconDataUrl(value)
+{
+    try
+    {
         const p = await resolveAppPath(value);
-        if (!p) return null;
+        if (!p)
+        {
+            return null;
+        }
         const img = await app.getFileIcon(p, {size: 'large'});
         return (!img || img.isEmpty()) ? null : img.toDataURL();
-    } catch (e) {
+    } catch (e)
+    {
         return null;
     }
 }
 
 // Turn an app value into a real file path: full paths used as-is; bare names resolved via `where`.
-function resolveAppPath(value) {
-    return new Promise(resolve => {
-        if (!value) return resolve(null);
-        if (/[\\/]/.test(value)) return resolve(fs.existsSync(value) ? value : null);
-        exec(`where "${value}"`, {windowsHide: true}, (err, stdout) => {
+function resolveAppPath(value)
+{
+    return new Promise(resolve =>
+    {
+        if (!value)
+        {
+            return resolve(null);
+        }
+        if (/[\\/]/.test(value))
+        {
+            return resolve(fs.existsSync(value) ? value : null);
+        }
+        exec(`where "${value}"`, {windowsHide: true}, (err, stdout) =>
+        {
             const first = (stdout || '').split(/\r?\n/).map(s => s.trim()).find(Boolean);
             resolve(first && fs.existsSync(first) ? first : null);
         });
     });
 }
 
-function runAction(a) {
-    if (!a || !a.type) return;
-    if (a.type === 'system' && a.value === 'config') return openConfigWindow();
+function runAction(a)
+{
+    if (!a || !a.type)
+    {
+        return;
+    }
+    if (a.type === 'system' && a.value === 'config')
+    {
+        return openConfigWindow();
+    }
     console.log('launch:', a.label, '->', a.type, a.value);
-    try {
-        switch (a.type) {
+    try
+    {
+        switch (a.type)
+        {
             case 'url':
                 shell.openExternal(a.value);
                 break;
@@ -466,30 +678,52 @@ function runAction(a) {
                 break;
             case 'page':
                 gotoGrid(a.value, true);
-                if (rotateRunning) scheduleRotation();
+                if (rotateRunning)
+                {
+                    scheduleRotation();
+                }
                 break;   // switch the panel to another page
             case 'system':
-                if (a.value === 'lock') exec('rundll32.exe user32.dll,LockWorkStation');
-                else if (a.value === 'mic') toggleMic();
-                else if (a.value === 'monitor') enterMonitorMode();   // hand the device screen to Windows; press the knob to return
+                if (a.value === 'lock')
+                {
+                    exec('rundll32.exe user32.dll,LockWorkStation');
+                }
+                else if (a.value === 'mic')
+                {
+                    toggleMic();
+                }
+                else if (a.value === 'monitor')
+                {
+                    enterMonitorMode();
+                }   // hand the device screen to Windows; press the knob to return
                 break;
         }
-    } catch (e) {
+    } catch (e)
+    {
         console.log('action error:', e.message);
     }
 }
 
 // Media transport for the Music page — global media keys via robotjs (instant, in-process; Windows
 // routes them to the active SMTC session, the same one nowplaying.js reports).
-function mediaKey(cmd) {
-    if (!robot) return false;
+function mediaKey(cmd)
+{
+    if (!robot)
+    {
+        return false;
+    }
     const map = {playpause: 'audio_play', next: 'audio_next', prev: 'audio_prev', stop: 'audio_stop'};
     const k = map[cmd];
-    if (!k) return false;
-    try {
+    if (!k)
+    {
+        return false;
+    }
+    try
+    {
         robot.keyTap(k);
         return true;
-    } catch (e) {
+    } catch (e)
+    {
         return false;
     }
 }
@@ -497,15 +731,18 @@ function mediaKey(cmd) {
 // Find the DK-QUAKE display. Match by its reported LABEL first — that survives scale/rotation/resolution
 // drift (e.g. a Windows/driver update bumping the panel off 100% scale, which changes bounds and would break
 // a size-only match). Fall back to the panel's size in logical, then physical (scale-corrected) pixels.
-function isPanelSize(w, h) {
+function isPanelSize(w, h)
+{
     return (w === 1920 && h === 480) || (w === 480 && h === 1920);
 }
 
-function deviceDisplay() {
+function deviceDisplay()
+{
     const all = screen.getAllDisplays();
     return all.find(d => /dk.?quake|aris.?68/i.test(d.label || ''))
         || all.find(d => isPanelSize(d.bounds.width, d.bounds.height))
-        || all.find(d => {
+        || all.find(d =>
+        {
             const s = d.scaleFactor || 1;
             return isPanelSize(Math.round(d.bounds.width * s), Math.round(d.bounds.height * s));
         });
@@ -520,51 +757,77 @@ let panelShown = false, coverKey = '';
 // — "this window IS the screen" — fills it correctly even when the OS has the display rotated. Keyed on the
 // display's current geometry so we only re-enter fullscreen when it actually changes (no flicker on repeats),
 // and the skip-guard requires fullscreen to have actually stuck — so an early/failed attempt self-corrects.
-function fitPanel(reason) {
+function fitPanel(reason)
+{
     const d = deviceDisplay();
-    if (!d || !panelWin || panelWin.isDestroyed() || !panelShown || monitorMode) return;   // don't re-cover the desktop while in monitor mode
+    if (!d || !panelWin || panelWin.isDestroyed() || !panelShown || monitorMode)
+    {
+        return;
+    }   // don't re-cover the desktop while in monitor mode
     const b = d.bounds, key = [b.x, b.y, b.width, b.height, d.rotation].join(',');
     let fs = false;
-    try {
+    try
+    {
         fs = panelWin.isSimpleFullScreen();
-    } catch (e) {
+    } catch (e)
+    {
     }
-    if (key === coverKey && fs) return;                              // already covering this exact geometry
+    if (key === coverKey && fs)
+    {
+        return;
+    }                              // already covering this exact geometry
     coverKey = key;
-    try {
-        if (fs) panelWin.setSimpleFullScreen(false);
-    } catch (e) {
+    try
+    {
+        if (fs)
+        {
+            panelWin.setSimpleFullScreen(false);
+        }
+    } catch (e)
+    {
     }   // drop fullscreen so we can re-place on the moved/rotated display
     panelWin.setBounds({x: b.x, y: b.y, width: b.width, height: b.height});
-    try {
+    try
+    {
         panelWin.setSimpleFullScreen(true);
-    } catch (e) {
+    } catch (e)
+    {
     }
     console.log('fitPanel(' + (reason || '') + '): "' + (d.label || '?') + '" ' + JSON.stringify(b)
-        + ' rot=' + d.rotation + ' -> ' + JSON.stringify(panelWin.getBounds()) + ' fs=' + (() => {
-            try {
+        + ' rot=' + d.rotation + ' -> ' + JSON.stringify(panelWin.getBounds()) + ' fs=' + (() =>
+        {
+            try
+            {
                 return panelWin.isSimpleFullScreen();
-            } catch (e) {
+            } catch (e)
+            {
                 return '?';
             }
         })());
 }
 
-function placePanel() {
-    if (monitorMode) return;                                          // in monitor mode the panel stays hidden — don't re-show it over the desktop
+function placePanel()
+{
+    if (monitorMode)
+    {
+        return;
+    }                                          // in monitor mode the panel stays hidden — don't re-show it over the desktop
     const d = deviceDisplay();
-    if (!d) {
+    if (!d)
+    {
         console.log('placePanel: DK-QUAKE display not present');
         return;
     }
-    if (!panelWin || panelWin.isDestroyed()) {
+    if (!panelWin || panelWin.isDestroyed())
+    {
         panelWin = new BrowserWindow({
             x: d.bounds.x, y: d.bounds.y, width: d.bounds.width, height: d.bounds.height,
             frame: false, show: false, skipTaskbar: true, backgroundColor: '#000000',
             webPreferences: {nodeIntegration: true, contextIsolation: false, webviewTag: true, webSecurity: false},
         });
         panelWin.loadFile(path.join(__dirname, 'index.html'));
-        panelWin.once('ready-to-show', () => {
+        panelWin.once('ready-to-show', () =>
+        {
             panelShown = true;
             panelWin.setAlwaysOnTop(true);
             panelWin.show();
@@ -574,7 +837,9 @@ function placePanel() {
             setTimeout(() => fitPanel('settle'), 400);   // external displays settle slowly — re-cover once geometry is final (no-op if already covering)
             pushToPanel();
         });
-    } else {
+    }
+    else
+    {
         panelWin.show();
         fitPanel('replace');
         pushToPanel();
@@ -584,36 +849,52 @@ function placePanel() {
 // ---- monitor mode: use the device as a normal monitor ----
 // Drop the panel cover so the Windows desktop shows on the device. The driver keep-alive keeps pinging,
 // so the backlight stays lit — only the launcher window is hidden. The knob (or the tray) brings it back.
-function enterMonitorMode() {
-    if (monitorMode || !panelWin || panelWin.isDestroyed()) return;
+function enterMonitorMode()
+{
+    if (monitorMode || !panelWin || panelWin.isDestroyed())
+    {
+        return;
+    }
     monitorMode = true;
-    try {
+    try
+    {
         panelWin.setSimpleFullScreen(false);
-    } catch (e) {
+    } catch (e)
+    {
     }
     panelWin.hide();
     coverKey = '';                                                    // force a fresh fit when the panel comes back
     syncPollers(null);                                               // nothing on the panel is visible -> idle the page pollers
-    try {
+    try
+    {
         dev.screenOn();
-    } catch (e) {
+    } catch (e)
+    {
     }                             // keep the backlight on as the desktop takes over
     refreshTray();
     console.log('monitor mode: ON (panel hidden, desktop visible, keep-alive running)');
 }
 
-function exitMonitorMode(reason) {
-    if (!monitorMode) return;
+function exitMonitorMode(reason)
+{
+    if (!monitorMode)
+    {
+        return;
+    }
     monitorMode = false;
     releaseTouch();                                                  // drop any held mouse button from an in-progress touch
-    if (panelWin && !panelWin.isDestroyed()) {
+    if (panelWin && !panelWin.isDestroyed())
+    {
         panelWin.setAlwaysOnTop(true);
         panelWin.show();
         panelWin.focus();
-        setTimeout(() => {
-            try {
+        setTimeout(() =>
+        {
+            try
+            {
                 panelWin.setAlwaysOnTop(false);
-            } catch (e) {
+            } catch (e)
+            {
             }
         }, 1500);
         fitPanel('monitor-exit');
@@ -624,7 +905,8 @@ function exitMonitorMode(reason) {
     console.log('monitor mode: OFF (' + (reason || '') + ')');
 }
 
-function toggleMonitorMode() {
+function toggleMonitorMode()
+{
     monitorMode ? exitMonitorMode('tray') : enterMonitorMode();
 }
 
@@ -634,41 +916,61 @@ function toggleMonitorMode() {
 // button if the device never sends an explicit lift frame (mirrors the dashboard webTouch logic).
 let touchDown = false, touchIdle = null;
 
-function injectTouch(p) {
-    if (!robot) return;
+function injectTouch(p)
+{
+    if (!robot)
+    {
+        return;
+    }
     const d = deviceDisplay();
-    if (!d) return;
+    if (!d)
+    {
+        return;
+    }
     const b = d.bounds;
     const x = Math.round(b.x + Math.max(0, Math.min(1920, p.x)));
     const y = Math.round(b.y + Math.max(0, Math.min(480, 480 - p.y)));   // device origin is bottom-left -> flip Y for the top-left screen
     clearTimeout(touchIdle);
-    try {
-        if (p.action === 1) {
+    try
+    {
+        if (p.action === 1)
+        {
             robot.moveMouse(x, y);
-            if (!touchDown) {
+            if (!touchDown)
+            {
                 touchDown = true;
                 robot.mouseToggle('down', 'left');
             }
             touchIdle = setTimeout(releaseTouch, 140);
-        } else releaseTouch();
-    } catch (e) {
+        }
+        else
+        {
+            releaseTouch();
+        }
+    } catch (e)
+    {
     }
 }
 
-function releaseTouch() {
+function releaseTouch()
+{
     clearTimeout(touchIdle);
-    if (touchDown) {
+    if (touchDown)
+    {
         touchDown = false;
-        try {
+        try
+        {
             robot.mouseToggle('up', 'left');
-        } catch (e) {
+        } catch (e)
+        {
         }
     }
 }
 
 // Knob behavior while in monitor mode (configured on the editor's Monitor tab). Turn -> volume or scroll;
 // single-tap -> Enter / right-click / mute. Double-tap and hold are unbound here; exit is tray-only.
-function monitorCfg() {
+function monitorCfg()
+{
     const m = (config.settings || {}).monitor || {};
     return {
         knobTurn: m.knobTurn === 'volume' ? 'volume' : 'scroll',                   // default: scroll
@@ -676,25 +978,54 @@ function monitorCfg() {
     };
 }
 
-function monitorKnob(k) {
-    if (!robot) return;
+function monitorKnob(k)
+{
+    if (!robot)
+    {
+        return;
+    }
     const m = monitorCfg();
-    try {
-        if (k.type === 'rotate') {
-            if (m.knobTurn === 'scroll') robot.scrollMouse(0, k.dir > 0 ? -120 : 120);   // 120 = one wheel notch per detent (needs the patched robotjs — see patches/)
-            else robot.keyTap(k.dir > 0 ? 'audio_vol_up' : 'audio_vol_down');
-        } else if (k.type === 'press' && k.index === 1) {                          // single-tap action
-            if (m.knobTap === 'leftclick') robot.mouseClick('left');
-            else if (m.knobTap === 'enter') robot.keyTap('enter');
-            else if (m.knobTap === 'rightclick') robot.mouseClick('right');
-            else robot.keyTap('audio_mute');
+    try
+    {
+        if (k.type === 'rotate')
+        {
+            if (m.knobTurn === 'scroll')
+            {
+                robot.scrollMouse(0, k.dir > 0 ? -120 : 120);
+            }// 120 = one wheel notch per detent (needs the patched robotjs — see patches/)
+            else
+            {
+                robot.keyTap(k.dir > 0 ? 'audio_vol_up' : 'audio_vol_down');
+            }
         }
-    } catch (e) {
+        else if (k.type === 'press' && k.index === 1)
+        {                          // single-tap action
+            if (m.knobTap === 'leftclick')
+            {
+                robot.mouseClick('left');
+            }
+            else if (m.knobTap === 'enter')
+            {
+                robot.keyTap('enter');
+            }
+            else if (m.knobTap === 'rightclick')
+            {
+                robot.mouseClick('right');
+            }
+            else
+            {
+                robot.keyTap('audio_mute');
+            }
+        }
+    } catch (e)
+    {
     }
 }
 
-function openConfigWindow() {
-    if (configWin && !configWin.isDestroyed()) {
+function openConfigWindow()
+{
+    if (configWin && !configWin.isDestroyed())
+    {
         configWin.show();
         configWin.focus();
         return;
@@ -710,10 +1041,12 @@ function openConfigWindow() {
         webPreferences: {nodeIntegration: true, contextIsolation: false, webSecurity: false},
     });
     configWin.loadFile(path.join(__dirname, 'config.html'));
-    configWin.on('closed', () => {
+    configWin.on('closed', () =>
+    {
         configWin = null;
     });
-    configWin.webContents.on('context-menu', (e, props) => {
+    configWin.webContents.on('context-menu', (e, props) =>
+    {
         const sel = props.selectionText && props.selectionText.trim().length > 0;
         const editable = props.isEditable;
         const menu = Menu.buildFromTemplate([
@@ -728,53 +1061,80 @@ function openConfigWindow() {
 }
 
 // ---- device settings (knob RGB ring, mic) ----
-function lighting() {
+function lighting()
+{
     return Object.assign({}, LED_DEFAULT, (config.settings || {}).lighting || {});
 }
 
-function applyKnobSettings() {
+function applyKnobSettings()
+{
     const L = lighting();
-    try {
+    try
+    {
         dev.setKnobLed(true);
-    } catch (e) {
+    } catch (e)
+    {
     }              // keep the ring from idle-sleeping (effect 0 = visually off)
-    try {
+    try
+    {
         dev.setLedEffect(L.effect & 0xFF);
-    } catch (e) {
+    } catch (e)
+    {
     }
-    try {
+    try
+    {
         dev.setLedBrightness(L.brightness & 0xFF);
-    } catch (e) {
+    } catch (e)
+    {
     }
-    try {
+    try
+    {
         dev.setLedSpeed(L.speed & 0xFF);
-    } catch (e) {
+    } catch (e)
+    {
     }
-    try {
+    try
+    {
         dev.setLedColor(L.hue & 0xFF, L.sat & 0xFF);
-    } catch (e) {
+    } catch (e)
+    {
     }
-    if (L.effect) lastRingEffect = L.effect;
+    if (L.effect)
+    {
+        lastRingEffect = L.effect;
+    }
 }
 
-function applyMic(on) {
-    try {
+function applyMic(on)
+{
+    try
+    {
         dev.setMic(on);
-    } catch (e) {
+    } catch (e)
+    {
     }
     micState = !!on;
     refreshTray();
 }
 
-function toggleMic() {
+function toggleMic()
+{
     applyMic(!micState);
 }
 
-function toggleKnobRing() {
-    if (!config.settings) config.settings = {};
+function toggleKnobRing()
+{
+    if (!config.settings)
+    {
+        config.settings = {};
+    }
     const L = config.settings.lighting = lighting();
-    if (L.effect === 0) L.effect = lastRingEffect || 1;     // turn back on -> restore the last effect
-    else {
+    if (L.effect === 0)
+    {
+        L.effect = lastRingEffect || 1;
+    }// turn back on -> restore the last effect
+    else
+    {
         lastRingEffect = L.effect;
         L.effect = 0;
     }        // turn off -> All Off
@@ -784,7 +1144,8 @@ function toggleKnobRing() {
 }
 
 // ---- screen rotation (auto-cycle pages) ----
-function rotationCfg() {
+function rotationCfg()
+{
     const r = (config.settings && config.settings.rotation) || {};
     return {
         enabled: !!r.enabled,
@@ -793,71 +1154,104 @@ function rotationCfg() {
     };
 }
 
-function pageCategory(g) {
+function pageCategory(g)
+{
     return g.kind === 'web' ? 'dashboards' : g.kind === 'app' ? 'apps' : 'grids';
 }
 
-function rotationList() {
+function rotationList()
+{
     const c = rotationCfg();
     return config.grids.filter(g => g.rotate && c.cats[pageCategory(g)]);
 }
 
-function gotoGrid(id, persist) {
-    if (!config.grids.some(g => g.id === id)) return;
+function gotoGrid(id, persist)
+{
+    if (!config.grids.some(g => g.id === id))
+    {
+        return;
+    }
     config.activeGridId = id;
-    if (persist) saveConfig();
+    if (persist)
+    {
+        saveConfig();
+    }
     pushToPanel();
 }
 
-function rotateTick() {
+function rotateTick()
+{
     const ids = rotationList().map(g => g.id);
-    if (ids.length < 2) return;                                  // nothing to cycle through
+    if (ids.length < 2)
+    {
+        return;
+    }                                  // nothing to cycle through
     gotoGrid(ids[(ids.indexOf(config.activeGridId) + 1) % ids.length], false);   // active not in list (-1) -> first
 }
 
-function scheduleRotation() {
-    if (rotTimer) {
+function scheduleRotation()
+{
+    if (rotTimer)
+    {
         clearTimeout(rotTimer);
         rotTimer = null;
     }
-    if (!rotateRunning) return;
-    rotTimer = setTimeout(() => {
+    if (!rotateRunning)
+    {
+        return;
+    }
+    rotTimer = setTimeout(() =>
+    {
         rotateTick();
         scheduleRotation();
     }, rotationCfg().interval * 1000);
 }
 
-function pushRotationState() {
-    if (panelWin && !panelWin.isDestroyed()) panelWin.webContents.send('rotation', {
-        enabled: rotationCfg().enabled,
-        running: rotateRunning
-    });
+function pushRotationState()
+{
+    if (panelWin && !panelWin.isDestroyed())
+    {
+        panelWin.webContents.send('rotation', {
+            enabled: rotationCfg().enabled,
+            running: rotateRunning
+        });
+    }
 }
 
-function setRotation(on) {
+function setRotation(on)
+{
     rotateRunning = !!on && rotationCfg().enabled;
     scheduleRotation();
     refreshTray();
     pushRotationState();
 }
 
-function toggleRotation() {
+function toggleRotation()
+{
     setRotation(!rotateRunning);
 }
 
 // Re-evaluate after a settings change: a fresh off->on starts it, off stops it, on->on keeps the runtime state
 // (so a manual pause survives an unrelated save). interval/page changes are picked up by the (re)schedule.
-function applyRotationSettings(wasEnabled) {
+function applyRotationSettings(wasEnabled)
+{
     const enabled = rotationCfg().enabled;
-    if (!enabled) rotateRunning = false;
-    else if (!wasEnabled) rotateRunning = true;
+    if (!enabled)
+    {
+        rotateRunning = false;
+    }
+    else if (!wasEnabled)
+    {
+        rotateRunning = true;
+    }
     scheduleRotation();
     refreshTray();
     pushRotationState();
 }
 
 // Tray icon — the app's desktop presence (the panel window deliberately skips the taskbar).
-function trayMenu() {
+function trayMenu()
+{
     const ringOn = lighting().effect !== 0;
     const items = [
         {label: 'open-quake', enabled: false},
@@ -869,30 +1263,39 @@ function trayMenu() {
             click: () => toggleKnobRing()
         },
     ];
-    if (rotationCfg().enabled) items.push({
-        label: rotateRunning ? 'Auto-rotate: on — click to pause' : 'Auto-rotate: off — click to start',
-        click: () => toggleRotation()
-    });
+    if (rotationCfg().enabled)
+    {
+        items.push({
+            label: rotateRunning ? 'Auto-rotate: on — click to pause' : 'Auto-rotate: off — click to start',
+            click: () => toggleRotation()
+        });
+    }
     items.push(
         {
             label: monitorMode ? 'Monitor mode: on — click to return to panel' : 'Switch to monitor mode (use device as a normal monitor)',
             click: () => toggleMonitorMode()
         },
         {
-            label: 'Re-place panel on device', enabled: !monitorMode, click: () => {
-                try {
+            label: 'Re-place panel on device', enabled: !monitorMode, click: () =>
+            {
+                try
+                {
                     dev.screenOn();
-                } catch (e) {
+                } catch (e)
+                {
                 }
                 placePanel();
             }
         },
         {type: 'separator'},
         {
-            label: 'Quit', click: () => {
-                try {
+            label: 'Quit', click: () =>
+            {
+                try
+                {
                     dev.stop();
-                } catch (e) {
+                } catch (e)
+                {
                 }
                 app.quit();
             }
@@ -901,16 +1304,26 @@ function trayMenu() {
     return Menu.buildFromTemplate(items);
 }
 
-function refreshTray() {
-    if (tray) tray.setContextMenu(trayMenu());
+function refreshTray()
+{
+    if (tray)
+    {
+        tray.setContextMenu(trayMenu());
+    }
 }
 
-function createTray() {
-    if (tray) return;
+function createTray()
+{
+    if (tray)
+    {
+        return;
+    }
     let img;
-    try {
+    try
+    {
         img = nativeImage.createFromBuffer(fs.readFileSync(path.join(__dirname, 'icon.png')));
-    } catch (e) {
+    } catch (e)
+    {
         img = nativeImage.createEmpty();
     }
     tray = new Tray(img);
@@ -921,36 +1334,52 @@ function createTray() {
 
 // Single-instance lock — a 2nd launch must not spawn a rival panel window (it fights the running
 // one over the device display → a white panel). Bail out; the running instance re-homes its panel.
-if (!app.requestSingleInstanceLock()) {
+if (!app.requestSingleInstanceLock())
+{
     app.exit(0);                                           // a copy already runs — force-exit now; this instance inits nothing
-} else {
-    app.on('second-instance', () => {
-        try {
+}
+else
+{
+    app.on('second-instance', () =>
+    {
+        try
+        {
             dev.screenOn();
-        } catch (e) {
+        } catch (e)
+        {
         }
         placePanel();
-        if (configWin && !configWin.isDestroyed()) {
+        if (configWin && !configWin.isDestroyed())
+        {
             configWin.show();
             configWin.focus();
-        } else openConfigWindow();
+        }
+        else
+        {
+            openConfigWindow();
+        }
     });
 
-    app.whenReady().then(async () => {
-        try {
+    app.whenReady().then(async () =>
+    {
+        try
+        {
             powerSaveBlocker.start('prevent-display-sleep');
-        } catch (e) {
+        } catch (e)
+        {
         }
         createTray();
         // SystemView: live local metrics server on 127.0.0.1 (OS-assigned port) + ensure the dashboard page.
         // Lazy-required so a metrics/load failure can never crash the rest of the app.
-        try {
+        try
+        {
             sysserver = require('./sysserver');
             serverPort = await sysserver.start({onMedia: mediaKey, onLaunch: onMusicLaunch, getMusicTiles});
             ensureSystemViewPage(serverPort);
             ensureMusicPage();
             console.log('SystemView + Music on http://127.0.0.1:' + serverPort);
-        } catch (e) {
+        } catch (e)
+        {
             console.log('local panel services failed to start:', e.message);
         }
         sweepIconCache();   // clean up orphaned URL-icon cache files left by prior sessions
@@ -961,59 +1390,99 @@ if (!app.requestSingleInstanceLock()) {
         // ('ha' token injection is done renderer-side; 'none' does nothing.)
         const dashSession = session.fromPartition('persist:dashboards');
         dashSession.setPermissionRequestHandler((wc, permission, cb) => cb(true));   // local trusted panel: allow mic (push-to-talk) etc.
-        dashSession.webRequest.onBeforeSendHeaders((details, cb) => {
+        dashSession.webRequest.onBeforeSendHeaders((details, cb) =>
+        {
             const g = activeGrid();
-            if (g && g.kind === 'web' && g.auth && g.auth.type === 'header' && hostMatches(g.url, details.url)) {
+            if (g && g.kind === 'web' && g.auth && g.auth.type === 'header' && hostMatches(g.url, details.url))
+            {
                 const h = details.requestHeaders;
-                (g.auth.headers || []).forEach(x => {
-                    if (x.name) h[x.name] = x.value;
+                (g.auth.headers || []).forEach(x =>
+                {
+                    if (x.name)
+                    {
+                        h[x.name] = x.value;
+                    }
                 });
                 return cb({requestHeaders: h});
             }
             cb({});
         });
-        app.on('login', (event, webContents, request, authInfo, callback) => {
-            if (authInfo.isProxy) return;
+        app.on('login', (event, webContents, request, authInfo, callback) =>
+        {
+            if (authInfo.isProxy)
+            {
+                return;
+            }
             const g = activeGrid();
-            if (g && g.kind === 'web' && g.auth && g.auth.type === 'basic' && hostMatches(g.url, request.url)) {
+            if (g && g.kind === 'web' && g.auth && g.auth.type === 'basic' && hostMatches(g.url, request.url))
+            {
                 event.preventDefault();
                 callback(g.auth.user || '', g.auth.pass || '');
             }
         });
 
         ipcMain.on('launch', (e, a) => runAction(a));
-        ipcMain.on('volume', (e, v) => {
-            if (robot) {
-                try {
-                    if (v === 'mute') robot.keyTap('audio_mute'); else robot.keyTap(v > 0 ? 'audio_vol_up' : 'audio_vol_down');
-                } catch (er) {
+        ipcMain.on('volume', (e, v) =>
+        {
+            if (robot)
+            {
+                try
+                {
+                    if (v === 'mute')
+                    {
+                        robot.keyTap('audio_mute');
+                    }
+                    else
+                    {
+                        robot.keyTap(v > 0 ? 'audio_vol_up' : 'audio_vol_down');
+                    }
+                } catch (er)
+                {
                 }
             }
         });
-        ipcMain.on('switchGrid', (e, id) => {
+        ipcMain.on('switchGrid', (e, id) =>
+        {
             gotoGrid(id, true);
-            if (rotateRunning) scheduleRotation();
+            if (rotateRunning)
+            {
+                scheduleRotation();
+            }
         });   // a manual pick resets the rotation timer
         ipcMain.on('toggleRotation', () => toggleRotation());
         ipcMain.on('openConfig', () => openConfigWindow());
-        ipcMain.on('introDone', () => {
+        ipcMain.on('introDone', () =>
+        {
             config.introShown = true;
             saveConfig();
         });   // remember the intro was dismissed
-        ipcMain.on('openExternal', (e, url) => {
-            try {
-                if (typeof url === 'string' && /^https?:/i.test(url)) shell.openExternal(url);
-            } catch (er) {
+        ipcMain.on('openExternal', (e, url) =>
+        {
+            try
+            {
+                if (typeof url === 'string' && /^https?:/i.test(url))
+                {
+                    shell.openExternal(url);
+                }
+            } catch (er)
+            {
             }
         });
         ipcMain.handle('getConfig', () => config);
         ipcMain.handle('getApps', () => loadApps());
-        ipcMain.on('saveConfigFromEditor', (e, newCfg) => {
+        ipcMain.on('saveConfigFromEditor', (e, newCfg) =>
+        {
             const active = config.activeGridId;                          // the knob owns the live page — editor edits never change it
             const wasRot = rotationCfg().enabled;                        // detect a fresh off->on to auto-start (else keep the runtime pause)
             config = newCfg;
-            if (config.grids.some(g => g.id === active)) config.activeGridId = active;
-            else if (!config.grids.some(g => g.id === config.activeGridId)) config.activeGridId = (config.grids[0] || {}).id || null;
+            if (config.grids.some(g => g.id === active))
+            {
+                config.activeGridId = active;
+            }
+            else if (!config.grids.some(g => g.id === config.activeGridId))
+            {
+                config.activeGridId = (config.grids[0] || {}).id || null;
+            }
             saveConfig();
             pushToPanel();
             applyKnobSettings();
@@ -1021,14 +1490,17 @@ if (!app.requestSingleInstanceLock()) {
             applyRotationSettings(wasRot);
         });
         // Dans main.js
-        ipcMain.on('saveTileValue', (event, data) => {
+        ipcMain.on('saveTileValue', (event, data) =>
+        {
             const gridIndex = config.activeGridIndex || 0;
-            if (config.grids && config.grids[gridIndex] && config.grids[gridIndex].tiles[data.index]) {
+            if (config.grids && config.grids[gridIndex] && config.grids[gridIndex].tiles[data.index])
+            {
                 config.grids[gridIndex].tiles[data.index].value = data.value;
                 saveConfig();
             }
         });
-        ipcMain.handle('pickProgram', async () => {
+        ipcMain.handle('pickProgram', async () =>
+        {
             const r = await dialog.showOpenDialog(configWin, {
                 properties: ['openFile'],
                 filters: [{name: 'Programs', extensions: ['exe', 'lnk', 'bat', 'cmd', 'com']}, {
@@ -1038,7 +1510,8 @@ if (!app.requestSingleInstanceLock()) {
             });
             return (r.canceled || !r.filePaths.length) ? null : r.filePaths[0];
         });
-        ipcMain.handle('pickImage', async () => {
+        ipcMain.handle('pickImage', async () =>
+        {
             const r = await dialog.showOpenDialog(configWin, {
                 properties: ['openFile'],
                 filters: [{
@@ -1048,7 +1521,8 @@ if (!app.requestSingleInstanceLock()) {
             });
             return (r.canceled || !r.filePaths.length) ? null : r.filePaths[0];
         });
-        ipcMain.handle('pickVideo', async () => {
+        ipcMain.handle('pickVideo', async () =>
+        {
             const r = await dialog.showOpenDialog(configWin, {
                 properties: ['openFile'],
                 filters: [{name: 'Videos', extensions: ['mp4', 'webm', 'mov']}, {name: 'All Files', extensions: ['*']}]
@@ -1060,72 +1534,138 @@ if (!app.requestSingleInstanceLock()) {
 
         // Knob RGB ring (QMK VIA). The editor's Settings page reads the device's current lighting, then
         // applies each change live; "Save to device" persists it to the device's own flash.
-        ipcMain.handle('getLighting', async () => {
+        ipcMain.handle('getLighting', async () =>
+        {
             let cur = null;
-            try {
+            try
+            {
                 cur = await dev.getLighting();
-            } catch (e) {
+            } catch (e)
+            {
             }
             return Object.assign({}, lighting(), cur && Object.keys(cur).length ? cur : {});
         });
-        ipcMain.on('setLighting', (e, L) => {
-            if (!L) return;
-            if (!config.settings) config.settings = {};
+        ipcMain.on('setLighting', (e, L) =>
+        {
+            if (!L)
+            {
+                return;
+            }
+            if (!config.settings)
+            {
+                config.settings = {};
+            }
             config.settings.lighting = Object.assign({}, lighting(), L);
-            if (config.settings.lighting.effect) lastRingEffect = config.settings.lighting.effect;
+            if (config.settings.lighting.effect)
+            {
+                lastRingEffect = config.settings.lighting.effect;
+            }
             saveConfig();
-            try {
-                if (L.effect != null) dev.setLedEffect(L.effect & 0xFF);
-                if (L.brightness != null) dev.setLedBrightness(L.brightness & 0xFF);
-                if (L.speed != null) dev.setLedSpeed(L.speed & 0xFF);
-                if (L.hue != null && L.sat != null) dev.setLedColor(L.hue & 0xFF, L.sat & 0xFF);
-            } catch (er) {
+            try
+            {
+                if (L.effect != null)
+                {
+                    dev.setLedEffect(L.effect & 0xFF);
+                }
+                if (L.brightness != null)
+                {
+                    dev.setLedBrightness(L.brightness & 0xFF);
+                }
+                if (L.speed != null)
+                {
+                    dev.setLedSpeed(L.speed & 0xFF);
+                }
+                if (L.hue != null && L.sat != null)
+                {
+                    dev.setLedColor(L.hue & 0xFF, L.sat & 0xFF);
+                }
+            } catch (er)
+            {
             }
             refreshTray();
         });
-        ipcMain.handle('saveLightingToDevice', () => {
-            try {
+        ipcMain.handle('saveLightingToDevice', () =>
+        {
+            try
+            {
                 return dev.saveLighting();
-            } catch (e) {
+            } catch (e)
+            {
                 return false;
             }
         });
 
         placePanel();
-        if (rotationCfg().enabled) setRotation(true);          // auto-start cycling on launch when enabled
+        if (rotationCfg().enabled)
+        {
+            setRotation(true);
+        }          // auto-start cycling on launch when enabled
         const ls = appSettings();
-        if (firstRun || ls.launchMode === 'editor') openConfigWindow();
-        else if (ls.launchMode === 'minimized') {
+        if (firstRun || ls.launchMode === 'editor')
+        {
             openConfigWindow();
-            if (configWin && !configWin.isDestroyed()) configWin.minimize();
+        }
+        else if (ls.launchMode === 'minimized')
+        {
+            openConfigWindow();
+            if (configWin && !configWin.isDestroyed())
+            {
+                configWin.minimize();
+            }
         }
         // 'tray' -> stay quiet (tray + panel only)
 
-        dev.on('touch', pts => {
-            if (monitorMode) {
+        dev.on('touch', pts =>
+        {
+            if (monitorMode)
+            {
                 const p = pts.find(q => q.action === 1) || pts[0];
-                if (p) injectTouch(p);
+                if (p)
+                {
+                    injectTouch(p);
+                }
                 return;
             }   // monitor mode: touch drives the Windows cursor
-            if (panelWin && !panelWin.isDestroyed()) panelWin.webContents.send('touch', pts);
+            if (panelWin && !panelWin.isDestroyed())
+            {
+                panelWin.webContents.send('touch', pts);
+            }
         });
-        dev.on('knob', k => {
-            if (monitorMode) return monitorKnob(k);                                    // monitor mode: knob does the configured turn/tap action (exit is tray-only)
-            if (panelWin && !panelWin.isDestroyed()) panelWin.webContents.send('knob', k);   // panel owns knob logic
+        dev.on('knob', k =>
+        {
+            if (monitorMode)
+            {
+                return monitorKnob(k);
+            }                                    // monitor mode: knob does the configured turn/tap action (exit is tray-only)
+            if (panelWin && !panelWin.isDestroyed())
+            {
+                panelWin.webContents.send('knob', k);
+            }   // panel owns knob logic
         });
-        dev.on('connect', async i => {
+        dev.on('connect', async i =>
+        {
             console.log('connect:', i.iface);
-            if (i.iface !== 'control') return;
+            if (i.iface !== 'control')
+            {
+                return;
+            }
             // First run: seed lighting from the device so we never change the ring unasked; otherwise the app's config wins.
-            if (!config.settings || !config.settings.lighting) {
-                try {
+            if (!config.settings || !config.settings.lighting)
+            {
+                try
+                {
                     const cur = await dev.getLighting();
-                    if (cur && Object.keys(cur).length) {
-                        if (!config.settings) config.settings = {};
+                    if (cur && Object.keys(cur).length)
+                    {
+                        if (!config.settings)
+                        {
+                            config.settings = {};
+                        }
                         config.settings.lighting = Object.assign({}, LED_DEFAULT, cur);
                         saveConfig();
                     }
-                } catch (e) {
+                } catch (e)
+                {
                 }
             }
             applyKnobSettings();
@@ -1135,10 +1675,13 @@ if (!app.requestSingleInstanceLock()) {
             // but the LED is dropped. Re-assert (screenOn then setMic — mirroring a display re-wake) on a stagger:
             // a single 2s pass is sometimes too early on a cold boot, so repeat until the panel has surely settled.
             // Uses the live micState, so a user toggle in the meantime is respected rather than overridden.
-            const reassertMic = tag => {
-                try {
+            const reassertMic = tag =>
+            {
+                try
+                {
                     dev.screenOn();
-                } catch (e) {
+                } catch (e)
+                {
                 }
                 applyMic(micState);
                 console.log('mic LED re-assert (' + tag + '):', micState);
@@ -1148,7 +1691,8 @@ if (!app.requestSingleInstanceLock()) {
         dev.on('error', e => console.log('dev error:', e.message));
         dev.start();
 
-        screen.on('display-added', () => {
+        screen.on('display-added', () =>
+        {
             dev.screenOn();
             setTimeout(placePanel, 800);
         });
@@ -1156,11 +1700,18 @@ if (!app.requestSingleInstanceLock()) {
         screen.on('display-metrics-changed', () => setTimeout(() => fitPanel('metrics-changed'), 500));
     });
 }
-app.on('window-all-closed', () => {
+app.on('window-all-closed', () =>
+{
 });
-app.on('before-quit', () => {
-    try {
-        if (sysserver) sysserver.stop();
-    } catch (e) {
+app.on('before-quit', () =>
+{
+    try
+    {
+        if (sysserver)
+        {
+            sysserver.stop();
+        }
+    } catch (e)
+    {
     }
 });   // stop metrics timers + close the server

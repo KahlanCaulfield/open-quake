@@ -437,26 +437,68 @@
     const LED_DEFAULT = {effect: 1, brightness: 200, speed: 128, hue: 128, sat: 255};
 
     // HSV (hue/sat 0-255, value fixed full) <-> #rrggbb — matches DK-Suite's conversion so the picker agrees with the ring.
-    function hsvToHex(hue255, sat255) {
+    function hsvToHex(hue255, sat255)
+    {
         const h = ((hue255 || 0) / 255) * 360, s = (sat255 || 0) / 255, v = 1;
         const c = v * s, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), m = v - c;
         let r = 0, g = 0, b = 0;
-        if (h < 60) [r, g, b] = [c, x, 0]; else if (h < 120) [r, g, b] = [x, c, 0]; else if (h < 180) [r, g, b] = [0, c, x];
-        else if (h < 240) [r, g, b] = [0, x, c]; else if (h < 300) [r, g, b] = [x, 0, c]; else [r, g, b] = [c, 0, x];
+        if (h < 60)
+        {
+            [r, g, b] = [c, x, 0];
+        }
+        else if (h < 120)
+        {
+            [r, g, b] = [x, c, 0];
+        }
+        else if (h < 180)
+        {
+            [r, g, b] = [0, c, x];
+        }
+        else if (h < 240)
+        {
+            [r, g, b] = [0, x, c];
+        }
+        else if (h < 300)
+        {
+            [r, g, b] = [x, 0, c];
+        }
+        else
+        {
+            [r, g, b] = [c, 0, x];
+        }
         const hx = n => Math.round((n + m) * 255).toString(16).padStart(2, '0');
         return '#' + hx(r) + hx(g) + hx(b);
     }
 
-    function hexToHsv(hex) {
+    function hexToHsv(hex)
+    {
         const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || '');
-        if (!m) return {hue: 0, sat: 0};
+        if (!m)
+        {
+            return {hue: 0, sat: 0};
+        }
         const r = parseInt(m[1], 16) / 255, g = parseInt(m[2], 16) / 255, b = parseInt(m[3], 16) / 255;
         const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
         let h = 0;
-        if (d) {
-            if (mx === r) h = ((g - b) / d) % 6; else if (mx === g) h = (b - r) / d + 2; else h = (r - g) / d + 4;
+        if (d)
+        {
+            if (mx === r)
+            {
+                h = ((g - b) / d) % 6;
+            }
+            else if (mx === g)
+            {
+                h = (b - r) / d + 2;
+            }
+            else
+            {
+                h = (r - g) / d + 4;
+            }
             h *= 60;
-            if (h < 0) h += 360;
+            if (h < 0)
+            {
+                h += 360;
+            }
         }
         return {hue: Math.round((h / 360) * 255), sat: Math.round((mx ? d / mx : 0) * 255)};
     }
@@ -471,26 +513,37 @@
     // (id / class / data-* / placeholder); wrapStyle = optional style on the wrapper (e.g. a flex weight).
     // RULE: every password / API key / token / secret in the editor goes through this — shown as ••••
     // with an opt-in reveal, never plain text. (See secretInput note in apps.json: option type "secret".)
-    function secretInput(value, attrs, wrapStyle) {
+    function secretInput(value, attrs, wrapStyle)
+    {
         return `<span class="secretwrap"${wrapStyle ? ` style="${wrapStyle}"` : ''}>`
             + `<input type="password" value="${esc(value)}" ${attrs || ''}>`
             + `<button type="button" class="reveal" tabindex="-1" title="Show / hide">👁</button></span>`;
     }
 
     // One-time delegated handler: an eyeball click toggles its field between hidden (••••) and visible.
-    document.addEventListener('click', e => {
+    document.addEventListener('click', e =>
+    {
         const b = e.target.closest && e.target.closest('.reveal');
-        if (!b) return;
+        if (!b)
+        {
+            return;
+        }
         const inp = b.parentElement && b.parentElement.querySelector('input');
-        if (!inp) return;
+        if (!inp)
+        {
+            return;
+        }
         const show = inp.type === 'password';
         inp.type = show ? 'text' : 'password';
         b.textContent = show ? '🙈' : '👁';
     });
-    const fileUrl = p => {
-        try {
+    const fileUrl = p =>
+    {
+        try
+        {
             return pathToFileURL(p).href;
-        } catch (e) {
+        } catch (e)
+        {
             return '';
         }
     };
@@ -499,39 +552,52 @@
     const iconTypeOf = t => t.iconType || 'emoji';
 
     // ---- screen-rotation per-page opt-in ----
-    function rotCatOn(g) {
+    function rotCatOn(g)
+    {
         const c = (config.settings && config.settings.rotation && config.settings.rotation.cats) || {};
         return !!c[g.kind === 'web' ? 'dashboards' : g.kind === 'app' ? 'apps' : 'grids'];
     }
 
-    function rotRowHtml(g) {
-        if (!rotCatOn(g)) return '';
+    function rotRowHtml(g)
+    {
+        if (!rotCatOn(g))
+        {
+            return '';
+        }
         return `<div class="row" style="margin-top:6px"><label style="width:auto">Rotation</label>
       <label class="iconopt" style="width:auto; white-space:nowrap"><input type="checkbox" id="gRot" ${g.rotate ? 'checked' : ''}> Include in rotation</label></div>`;
     }
 
-    function wireRotRow(g) {
+    function wireRotRow(g)
+    {
         const el = document.getElementById('gRot');
-        if (el) el.onchange = e => {
-            g.rotate = e.target.checked;
-            markDirty();
-        };
+        if (el)
+        {
+            el.onchange = e =>
+            {
+                g.rotate = e.target.checked;
+                markDirty();
+            };
+        }
     }
 
     // ---- save model (no live edit) ----
-    function setState(text, cls) {
+    function setState(text, cls)
+    {
         const el = document.getElementById('state');
         el.textContent = text;
         el.className = 'state' + (cls ? ' ' + cls : '');
     }
 
-    function markDirty() {
+    function markDirty()
+    {
         dirty = true;
         setState('● unsaved changes', 'dirty');
         document.getElementById('saveBtn').disabled = false;
     }
 
-    function doSave() {
+    function doSave()
+    {
         ipcRenderer.send('saveConfigFromEditor', config);
         dirty = false;
         document.getElementById('saveBtn').disabled = true;
@@ -539,31 +605,51 @@
     }
 
     // ---- tiles / icons ----
-    function blankTile() {
+    function blankTile()
+    {
         return {label: '', icon: '', type: '', value: '', iconType: 'emoji', iconImage: '', iconUrl: '', iconCache: ''};
     }
 
-    function ensureTiles(g) {
+    function ensureTiles(g)
+    {
         const need = g.cols * g.rows;
-        while (g.tiles.length < need) g.tiles.push(blankTile());
+        while (g.tiles.length < need)
+        {
+            g.tiles.push(blankTile());
+        }
         g.tiles.length = need;
     }
 
-    async function ensureAppIcon(value) {
-        if (!value || Object.prototype.hasOwnProperty.call(appIconCache, value)) return;
+    async function ensureAppIcon(value)
+    {
+        if (!value || Object.prototype.hasOwnProperty.call(appIconCache, value))
+        {
+            return;
+        }
         appIconCache[value] = null;                 // in-flight, prevents duplicate calls
         appIconCache[value] = (await ipcRenderer.invoke('getAppIcon', value)) || false;
         render();
     }
 
     // icon HTML for a tile in a given context: 'cell' (grid preview) or 'prev' (big preview)
-    function iconHtml(t, ctx) {
+    function iconHtml(t, ctx)
+    {
         const type = iconTypeOf(t);
-        if (type === 'image' && t.iconImage) return `<img class="${ctx === 'cell' ? 'cimg' : ''}" src="${fileUrl(t.iconImage)}" alt="">`;
-        if (type === 'url' && t.iconCache) return `<img class="${ctx === 'cell' ? 'cimg' : ''}" src="${urlSrc(t)}" alt="">`;
-        if (type === 'app' && t.value) {
+        if (type === 'image' && t.iconImage)
+        {
+            return `<img class="${ctx === 'cell' ? 'cimg' : ''}" src="${fileUrl(t.iconImage)}" alt="">`;
+        }
+        if (type === 'url' && t.iconCache)
+        {
+            return `<img class="${ctx === 'cell' ? 'cimg' : ''}" src="${urlSrc(t)}" alt="">`;
+        }
+        if (type === 'app' && t.value)
+        {
             const c = appIconCache[t.value];
-            if (c) return `<img class="${ctx === 'cell' ? 'cimg' : ''}" src="${c}" alt="">`;
+            if (c)
+            {
+                return `<img class="${ctx === 'cell' ? 'cimg' : ''}" src="${c}" alt="">`;
+            }
             ensureAppIcon(t.value);                   // load + re-render; emoji fallback meanwhile
         }
         const em = t.icon || (type === 'app' ? '🚀' : '▫️');
@@ -571,15 +657,18 @@
     }
 
     // ---- left grid list ----
-    function renderGrids() {
+    function renderGrids()
+    {
         const el = document.getElementById('gridlist');
         el.innerHTML = '';
-        config.grids.forEach((g, i) => {
+        config.grids.forEach((g, i) =>
+        {
             const d = document.createElement('div');
             d.className = 'gridrow' + (i === gi ? ' active' : '');
             const tag = g.kind === 'web' ? '🌐' : g.kind === 'app' ? '🧩' : '▦';
             d.innerHTML = `<span>${tag} ${esc(g.name) || '(unnamed)'}</span>`;
-            d.onclick = () => {
+            d.onclick = () =>
+            {
                 view = 'pages';
                 gi = i;
                 ti = -1;
@@ -591,10 +680,12 @@
     }
 
     // ---- grid meta ----
-    function renderMeta() {
+    function renderMeta()
+    {
         const g = curGrid();
         const el = document.getElementById('gridmeta');
-        if (!g) {
+        if (!g)
+        {
             el.innerHTML = '<p class="hint">No grid. Click “+ Add Grid”.</p>';
             return;
         }
@@ -606,12 +697,14 @@
       <div class="row">
         <button class="danger" id="gDelete">Delete grid</button>
       </div>`;
-        document.getElementById('gName').oninput = e => {
+        document.getElementById('gName').oninput = e =>
+        {
             g.name = e.target.value;
             renderGrids();
             markDirty();
         };
-        document.getElementById('gCols').onchange = e => {
+        document.getElementById('gCols').onchange = e =>
+        {
             clearAllMerges(g);
             g.cols = Math.max(1, Math.min(12, +e.target.value || 1));
             ensureTiles(g);
@@ -620,7 +713,8 @@
             render();
             markDirty();
         };
-        document.getElementById('gRows').onchange = e => {
+        document.getElementById('gRows').onchange = e =>
+        {
             clearAllMerges(g);
             g.rows = Math.max(1, Math.min(6, +e.target.value || 1));
             ensureTiles(g);
@@ -636,16 +730,22 @@
     // ---- tile cells (with merge/span support) ----
     const rc = (g, i) => ({c: i % g.cols, r: Math.floor(i / g.cols)});
 
-    function selRect(g) {
-        if (ti < 0) return null;
+    function selRect(g)
+    {
+        if (ti < 0)
+        {
+            return null;
+        }
         const a = rc(g, ti), b = rc(g, selEnd >= 0 ? selEnd : ti);
         return {c0: Math.min(a.c, b.c), c1: Math.max(a.c, b.c), r0: Math.min(a.r, b.r), r1: Math.max(a.r, b.r)};
     }
 
-    function renderTiles() {
+    function renderTiles()
+    {
         const g = curGrid();
         const el = document.getElementById('tilegrid');
-        if (!g) {
+        if (!g)
+        {
             el.innerHTML = '';
             return;
         }
@@ -656,8 +756,12 @@
         el.style.gridTemplateRows = `repeat(${g.rows}, ${cell}px)`;
         el.innerHTML = '';
         const rect = selRect(g);
-        g.tiles.forEach((t, i) => {
-            if (t && t.cover != null) return;                          // covered by a merged tile
+        g.tiles.forEach((t, i) =>
+        {
+            if (t && t.cover != null)
+            {
+                return;
+            }                          // covered by a merged tile
             const {c, r} = rc(g, i), w = (t && t.w) || 1, h = (t && t.h) || 1;
             const empty = !t || !t.type;
             const inSel = selEnd >= 0 && rect && c >= rect.c0 && c <= rect.c1 && r >= rect.r0 && r <= rect.r1;
@@ -666,33 +770,44 @@
             d.style.gridColumn = `${c + 1} / span ${w}`;
             d.style.gridRow = `${r + 1} / span ${h}`;
             d.innerHTML = empty ? '+' : `${iconHtml(t, 'cell')}<div class="lb">${esc(t.label)}</div>`;
-            d.onclick = e => {
-                if (e.shiftKey && ti >= 0) selEnd = i; else {
+            d.onclick = e =>
+            {
+                if (e.shiftKey && ti >= 0)
+                {
+                    selEnd = i;
+                }
+                else
+                {
                     ti = i;
                     selEnd = -1;
                 }
                 render();
             };
             d.draggable = true;                                          // drag to rearrange — 1×1 tiles swap, merged blocks move
-            d.ondragstart = e => {
+            d.ondragstart = e =>
+            {
                 dragFrom = i;
                 e.dataTransfer.effectAllowed = 'move';
                 e.dataTransfer.setData('text/plain', String(i));
             };
-            d.ondragover = e => {
-                if (dragFrom >= 0 && dragFrom !== i) {
+            d.ondragover = e =>
+            {
+                if (dragFrom >= 0 && dragFrom !== i)
+                {
                     e.preventDefault();
                     d.classList.add('dragover');
                 }
             };
             d.ondragleave = () => d.classList.remove('dragover');
-            d.ondrop = e => {
+            d.ondrop = e =>
+            {
                 e.preventDefault();
                 d.classList.remove('dragover');
                 handleDrop(g, dragFrom, i);
                 dragFrom = -1;
             };
-            d.ondragend = () => {
+            d.ondragend = () =>
+            {
                 dragFrom = -1;
             };
             el.appendChild(d);
@@ -700,60 +815,103 @@
         renderMergeBar(g);
     }
 
-    function renderMergeBar(g) {
+    function renderMergeBar(g)
+    {
         const el = document.getElementById('mergebar');
-        if (!el) return;
+        if (!el)
+        {
+            return;
+        }
         const rect = selRect(g);
         const multi = selEnd >= 0 && rect && (rect.c1 > rect.c0 || rect.r1 > rect.r0);
         const t = ti >= 0 ? g.tiles[ti] : null;
         const merged = t && ((t.w || 1) > 1 || (t.h || 1) > 1);
         el.className = 'mergebar' + ((multi || merged) ? ' active' : '');
-        if (multi) {
+        if (multi)
+        {
             el.innerHTML = `<b>${rect.c1 - rect.c0 + 1}×${rect.r1 - rect.r0 + 1} block selected</b><button class="primary" id="mergeBtn">Merge into one button</button><span class="hint">uses the top-left tile’s label / icon / action</span>`;
             document.getElementById('mergeBtn').onclick = () => mergeSelection(g);
-        } else if (merged) {
+        }
+        else if (merged)
+        {
             el.innerHTML = `<b>Merged tile</b><button id="unmergeBtn">Unmerge</button><span class="hint">split back into single cells</span>`;
             document.getElementById('unmergeBtn').onclick = () => unmergeTile(g);
-        } else {
+        }
+        else
+        {
             el.innerHTML = `<span class="hint">Tip: click a tile, then <b>Shift-click</b> another to select a block — a Merge button appears here.</span>`;
         }
     }
 
-    function flattenAt(g, idx) {                                    // fully un-merge any merge touching cell idx
+    function flattenAt(g, idx)
+    {                                    // fully un-merge any merge touching cell idx
         const t = g.tiles[idx];
-        if (!t) return;
+        if (!t)
+        {
+            return;
+        }
         const owner = (t.cover != null) ? t.cover : idx;
         const o = g.tiles[owner];
-        if (!o) {
+        if (!o)
+        {
             g.tiles[idx] = blankTile();
             return;
         }
         const w = o.w || 1, h = o.h || 1;
-        if (w > 1 || h > 1) {
+        if (w > 1 || h > 1)
+        {
             const oc = owner % g.cols, or = Math.floor(owner / g.cols);
-            for (let r = or; r < or + h; r++) for (let c = oc; c < oc + w; c++) {
-                const ci = r * g.cols + c;
-                if (ci !== owner && g.tiles[ci]) g.tiles[ci] = blankTile();
+            for (let r = or; r < or + h; r++)
+            {
+                for (let c = oc; c < oc + w; c++)
+                {
+                    const ci = r * g.cols + c;
+                    if (ci !== owner && g.tiles[ci])
+                    {
+                        g.tiles[ci] = blankTile();
+                    }
+                }
             }
             o.w = 1;
             o.h = 1;
         }
     }
 
-    function clearAllMerges(g) {
-        for (let i = 0; i < g.tiles.length; i++) flattenAt(g, i);
+    function clearAllMerges(g)
+    {
+        for (let i = 0; i < g.tiles.length; i++)
+        {
+            flattenAt(g, i);
+        }
     }
 
-    function mergeSelection(g) {
+    function mergeSelection(g)
+    {
         const rect = selRect(g);
-        if (!rect) return;
-        for (let r = rect.r0; r <= rect.r1; r++) for (let c = rect.c0; c <= rect.c1; c++) flattenAt(g, r * g.cols + c);
+        if (!rect)
+        {
+            return;
+        }
+        for (let r = rect.r0; r <= rect.r1; r++)
+        {
+            for (let c = rect.c0; c <= rect.c1; c++)
+            {
+                flattenAt(g, r * g.cols + c);
+            }
+        }
         const owner = rect.r0 * g.cols + rect.c0;
         g.tiles[owner].w = rect.c1 - rect.c0 + 1;
         g.tiles[owner].h = rect.r1 - rect.r0 + 1;
-        for (let r = rect.r0; r <= rect.r1; r++) for (let c = rect.c0; c <= rect.c1; c++) {
-            const idx = r * g.cols + c;
-            if (idx !== owner) g.tiles[idx] = {cover: owner};
+        for (let r = rect.r0; r <= rect.r1; r++)
+        {
+            for (let c = rect.c0; c <= rect.c1; c++)
+            {
+                const idx = r * g.cols + c;
+                if (idx !== owner)
+                {
+                    g.tiles[idx] = {cover: owner};
+                }
+            }
         }
         ti = owner;
         selEnd = -1;
@@ -761,14 +919,16 @@
         markDirty();
     }
 
-    function unmergeTile(g) {
+    function unmergeTile(g)
+    {
         flattenAt(g, ti);
         selEnd = -1;
         render();
         markDirty();
     }
 
-    function swapTiles(g, a, b) {
+    function swapTiles(g, a, b)
+    {
         const t = g.tiles[a];
         g.tiles[a] = g.tiles[b];
         g.tiles[b] = t;
@@ -778,7 +938,8 @@
         markDirty();
     }
 
-    function tileFields(t) {
+    function tileFields(t)
+    {
         return {
             label: (t && t.label) || '',
             icon: (t && t.icon) || '',
@@ -791,43 +952,89 @@
         };
     }
 
-    function handleDrop(g, from, to) {
-        if (from < 0 || from === to) return;
+    function handleDrop(g, from, to)
+    {
+        if (from < 0 || from === to)
+        {
+            return;
+        }
         const sf = g.tiles[from], sw = (sf && sf.w) || 1, sh = (sf && sf.h) || 1;
         const tt = g.tiles[to], tw = (tt && tt.w) || 1, th = (tt && tt.h) || 1;
-        if (sw > 1 || sh > 1) moveBlock(g, from, to % g.cols, Math.floor(to / g.cols));   // move a merged block
-        else if (tw === 1 && th === 1) swapTiles(g, from, to);                            // swap two 1×1 tiles
+        if (sw > 1 || sh > 1)
+        {
+            moveBlock(g, from, to % g.cols, Math.floor(to / g.cols));
+        }// move a merged block
+        else if (tw === 1 && th === 1)
+        {
+            swapTiles(g, from, to);
+        }                            // swap two 1×1 tiles
         // (dropping a 1×1 onto a merged block is ignored for now)
     }
 
     // Move a merged block so its top-left lands at (dc,dr); tiles it lands on slide into the cells it vacated.
-    function moveBlock(g, ownerIdx, dc, dr) {
+    function moveBlock(g, ownerIdx, dc, dr)
+    {
         const w0 = (g.tiles[ownerIdx].w) || 1, h0 = (g.tiles[ownerIdx].h) || 1;
         dc = Math.max(0, Math.min(dc, g.cols - w0));
         dr = Math.max(0, Math.min(dr, g.rows - h0));
         const sc = ownerIdx % g.cols, sr = Math.floor(ownerIdx / g.cols);
-        if (sc === dc && sr === dr) return;
+        if (sc === dc && sr === dr)
+        {
+            return;
+        }
         const at = (c, r) => r * g.cols + c;
         const blockContent = tileFields(g.tiles[ownerIdx]);
         const srcSet = new Set(), dstSet = new Set();
-        for (let or = 0; or < h0; or++) for (let oc = 0; oc < w0; oc++) {
-            srcSet.add(at(sc + oc, sr + or));
-            dstSet.add(at(dc + oc, dr + or));
+        for (let or = 0; or < h0; or++)
+        {
+            for (let oc = 0; oc < w0; oc++)
+            {
+                srcSet.add(at(sc + oc, sr + or));
+                dstSet.add(at(dc + oc, dr + or));
+            }
         }
-        for (const di of dstSet) if (!srcSet.has(di)) flattenAt(g, di);                     // unmerge anything under the destination
+        for (const di of dstSet)
+        {
+            if (!srcSet.has(di))
+            {
+                flattenAt(g, di);
+            }
+        }                     // unmerge anything under the destination
         const displaced = [];
-        for (const di of dstSet) if (!srcSet.has(di)) displaced.push(tileFields(g.tiles[di]));
-        for (const si of srcSet) g.tiles[si] = blankTile();                                 // lift the block out
+        for (const di of dstSet)
+        {
+            if (!srcSet.has(di))
+            {
+                displaced.push(tileFields(g.tiles[di]));
+            }
+        }
+        for (const si of srcSet)
+        {
+            g.tiles[si] = blankTile();
+        }                                 // lift the block out
         const freed = [];
-        for (const si of srcSet) if (!dstSet.has(si)) freed.push(si);
-        freed.forEach((fi, k) => {
-            if (displaced[k]) g.tiles[fi] = displaced[k];
+        for (const si of srcSet)
+        {
+            if (!dstSet.has(si))
+            {
+                freed.push(si);
+            }
+        }
+        freed.forEach((fi, k) =>
+        {
+            if (displaced[k])
+            {
+                g.tiles[fi] = displaced[k];
+            }
         });         // displaced tiles slide into the vacated cells
         const newOwner = at(dc, dr);
-        for (const di of dstSet) g.tiles[di] = (di === newOwner) ? Object.assign(blockContent, {
-            w: w0,
-            h: h0
-        }) : {cover: newOwner};
+        for (const di of dstSet)
+        {
+            g.tiles[di] = (di === newOwner) ? Object.assign(blockContent, {
+                w: w0,
+                h: h0
+            }) : {cover: newOwner};
+        }
         ti = newOwner;
         selEnd = -1;
         render();
@@ -835,10 +1042,12 @@
     }
 
     // ---- tile form (left) ----
-    function renderForm() {
+    function renderForm()
+    {
         const g = curGrid();
         const el = document.getElementById('tileform');
-        if (!g || ti < 0) {
+        if (!g || ti < 0)
+        {
             el.innerHTML = '<p class="hint">Pick a tile above to edit it.</p>';
             document.getElementById('iconpane').innerHTML = '';
             return;
@@ -854,66 +1063,92 @@
       <div class="row"><button class="danger" id="tClear">Clear tile</button></div>
       <p class="hint">${typeHint(t.type)}</p>
     </div>`;
-        document.getElementById('tLabel').oninput = e => {
+        document.getElementById('tLabel').oninput = e =>
+        {
             t.label = e.target.value;
             renderTiles();
             markDirty();
         };
-        document.getElementById('tType').onchange = e => {
+        document.getElementById('tType').onchange = e =>
+        {
             const prev = t.type;
             t.type = e.target.value;
-            if (t.type === 'page' || prev === 'page') t.value = '';
+            if (t.type === 'page' || prev === 'page')
+            {
+                t.value = '';
+            }
             render();
             markDirty();
         };
         const tv = document.getElementById('tValue');
-        if (tv) tv.oninput = e => {
-            t.value = e.target.value;
-            renderTiles();
-            renderIconPane();
-            markDirty();
-        };
+        if (tv)
+        {
+            tv.oninput = e =>
+            {
+                t.value = e.target.value;
+                renderTiles();
+                renderIconPane();
+                markDirty();
+            };
+        }
         const tp = document.getElementById('tPage');
-        if (tp) {
-            if (tp.value && tp.value !== t.value) {
+        if (tp)
+        {
+            if (tp.value && tp.value !== t.value)
+            {
                 t.value = tp.value;
                 markDirty();
             }
-            tp.onchange = e => {
+            tp.onchange = e =>
+            {
                 t.value = e.target.value;
                 renderTiles();
                 markDirty();
             };
         }
-        document.getElementById('tClear').onclick = () => {
+        document.getElementById('tClear').onclick = () =>
+        {
             flattenAt(g, ti);
             g.tiles[ti] = blankTile();
             render();
             markDirty();
         };
         const br = document.getElementById('tBrowse');
-        if (br) br.onclick = async () => {
-            const p = await ipcRenderer.invoke('pickProgram');
-            if (p) {
-                t.value = p;
-                if (!t.label) t.label = baseName(p);
-                render();
-                markDirty();
-            }
-        };
+        if (br)
+        {
+            br.onclick = async () =>
+            {
+                const p = await ipcRenderer.invoke('pickProgram');
+                if (p)
+                {
+                    t.value = p;
+                    if (!t.label)
+                    {
+                        t.label = baseName(p);
+                    }
+                    render();
+                    markDirty();
+                }
+            };
+        }
         renderIconPane();
     }
 
     // ---- icon box (right) ----
-    function renderIconPane() {
+    function renderIconPane()
+    {
         const g = curGrid();
         const el = document.getElementById('iconpane');
-        if (!g || ti < 0) {
+        if (!g || ti < 0)
+        {
             el.innerHTML = '';
             return;
         }
         const t = g.tiles[ti];
-        if (iconTypeOf(t) === 'app' && t.type !== 'app') t.iconType = 'emoji';   // app icon only valid for App type
+        if (iconTypeOf(t) === 'app' && t.type !== 'app')
+        {
+            t.iconType = 'emoji';
+        }   // app icon only valid for App type
         const type = iconTypeOf(t), appOk = t.type === 'app';
         el.innerHTML = `<div class="iconbox">
       <p class="sectitle">Icon</p>
@@ -924,7 +1159,8 @@
       <div class="icondetail" id="icondetail"></div>
       <div class="iconpreview" id="iconpreview"></div>
     </div>`;
-        el.querySelectorAll('input[name=ic]').forEach(r => r.onchange = e => {
+        el.querySelectorAll('input[name=ic]').forEach(r => r.onchange = e =>
+        {
             t.iconType = e.target.value;
             renderIconPane();
             renderTiles();
@@ -934,26 +1170,41 @@
         renderIconPreview(t);
     }
 
-    function renderIconDetail(t) {
+    function renderIconDetail(t)
+    {
         const el = document.getElementById('icondetail');
-        if (!el) return;
+        if (!el)
+        {
+            return;
+        }
         const type = iconTypeOf(t);
-        if (type === 'emoji') {
+        if (type === 'emoji')
+        {
             el.innerHTML = `<input id="tIcon" value="${esc(t.icon)}" placeholder="paste an emoji, e.g. 🌐">`;
-            document.getElementById('tIcon').oninput = e => {
+            document.getElementById('tIcon').oninput = e =>
+            {
                 t.icon = e.target.value;
                 renderTiles();
                 renderIconPreview(t);
                 markDirty();
             };
-        } else if (type === 'app') {
+        }
+        else if (type === 'app')
+        {
             el.innerHTML = `<p class="hint">${t.value ? 'Uses this program’s own icon: <b>' + esc(t.value) + '</b>' : 'Set a program in Value first.'}</p>`;
-            if (t.value) ensureAppIcon(t.value);
-        } else if (type === 'image') {
+            if (t.value)
+            {
+                ensureAppIcon(t.value);
+            }
+        }
+        else if (type === 'image')
+        {
             el.innerHTML = `<div class="row"><input id="tImage" value="${esc(t.iconImage)}" placeholder="path to an image" readonly><button id="tImgBrowse">Browse…</button></div>`;
-            document.getElementById('tImgBrowse').onclick = async () => {
+            document.getElementById('tImgBrowse').onclick = async () =>
+            {
                 const p = await ipcRenderer.invoke('pickImage');
-                if (p) {
+                if (p)
+                {
                     t.iconImage = p;
                     renderIconDetail(t);
                     renderIconPreview(t);
@@ -961,20 +1212,25 @@
                     markDirty();
                 }
             };
-        } else if (type === 'url') {
+        }
+        else if (type === 'url')
+        {
             el.innerHTML = `<div class="row"><input id="tUrl" value="${esc(t.iconUrl)}" placeholder="https://…/icon.png" style="flex:1"><button id="tUrlGet">Fetch</button></div>
         <p class="hint" id="tUrlMsg" style="margin:4px 0 0">Paste an image URL, then Fetch — it's downloaded and cached so the icon works offline.</p>`;
             const inp = document.getElementById('tUrl'), msg = () => document.getElementById('tUrlMsg'),
                 btn = () => document.getElementById('tUrlGet');
             // "Refresh" only when the box matches the already-cached URL; any edit (or no cache yet) shows "Fetch", so it's clear there's a change to apply.
-            const sync = () => {
+            const sync = () =>
+            {
                 btn().textContent = (t.iconCache && inp.value.trim() === (t.iconUrl || '')) ? 'Refresh' : 'Fetch';
             };
             sync();
             inp.oninput = sync;
-            btn().onclick = async () => {
+            btn().onclick = async () =>
+            {
                 const url = inp.value.trim();
-                if (!url) {
+                if (!url)
+                {
                     msg().textContent = 'Enter an image URL first.';
                     return;
                 }
@@ -982,73 +1238,150 @@
                 btn().disabled = true;
                 const r = await ipcRenderer.invoke('fetchIconUrl', url);
                 btn().disabled = false;
-                if (r && r.ok) {
+                if (r && r.ok)
+                {
                     t.iconUrl = url;
                     t.iconCache = r.cachePath;
-                    if (r.dataUrl) urlIconPreview[r.cachePath] = r.dataUrl;
+                    if (r.dataUrl)
+                    {
+                        urlIconPreview[r.cachePath] = r.dataUrl;
+                    }
                     msg().textContent = 'Icon downloaded ✓';
                     sync();
                     renderIconPreview(t);
                     renderTiles();
                     markDirty();
-                } else {
+                }
+                else
+                {
                     msg().textContent = (r && r.error) || 'Could not fetch that image.';
                 }
             };
         }
     }
 
-    function renderIconPreview(t) {
+    function renderIconPreview(t)
+    {
         const el = document.getElementById('iconpreview');
-        if (!el) return;
+        if (!el)
+        {
+            return;
+        }
         const type = iconTypeOf(t);
-        if (type === 'image' && t.iconImage) el.innerHTML = `<img src="${fileUrl(t.iconImage)}" alt="">`;
-        else if (type === 'url' && t.iconCache) el.innerHTML = `<img src="${urlSrc(t)}" alt="">`;
-        else if (type === 'url') el.innerHTML = `<span class="none">fetch an image URL to preview</span>`;
-        else if (type === 'app' && t.value) {
+        if (type === 'image' && t.iconImage)
+        {
+            el.innerHTML = `<img src="${fileUrl(t.iconImage)}" alt="">`;
+        }
+        else if (type === 'url' && t.iconCache)
+        {
+            el.innerHTML = `<img src="${urlSrc(t)}" alt="">`;
+        }
+        else if (type === 'url')
+        {
+            el.innerHTML = `<span class="none">fetch an image URL to preview</span>`;
+        }
+        else if (type === 'app' && t.value)
+        {
             const c = appIconCache[t.value];
-            if (c) el.innerHTML = `<img src="${c}" alt="">`;
-            else if (c === false) el.innerHTML = `<span class="none">couldn’t read icon — emoji shown instead</span>`;
-            else {
+            if (c)
+            {
+                el.innerHTML = `<img src="${c}" alt="">`;
+            }
+            else if (c === false)
+            {
+                el.innerHTML = `<span class="none">couldn’t read icon — emoji shown instead</span>`;
+            }
+            else
+            {
                 el.innerHTML = `<span class="none">resolving…</span>`;
                 ensureAppIcon(t.value);
             }
-        } else if (type === 'app') el.innerHTML = `<span class="none">no program set</span>`;
-        else el.innerHTML = t.icon ? `<span class="em">${t.icon}</span>` : `<span class="none">no emoji</span>`;
+        }
+        else if (type === 'app')
+        {
+            el.innerHTML = `<span class="none">no program set</span>`;
+        }
+        else
+        {
+            el.innerHTML = t.icon ? `<span class="em">${t.icon}</span>` : `<span class="none">no emoji</span>`;
+        }
     }
 
-    function valuePlaceholder(type) {
-        if (type === 'url') return 'https://…';
-        else if (type === 'app') return 'chrome  (or full path)';
-        else if (type === 'cmd') return 'start ms-settings:';
-        else if (type === 'system') return 'lock  |  config  |  mic | monitor';
-        else if (type === 'counter') return 'Start value (ex: 0)';
+    function valuePlaceholder(type)
+    {
+        if (type === 'url')
+        {
+            return 'https://…';
+        }
+        else if (type === 'app')
+        {
+            return 'chrome  (or full path)';
+        }
+        else if (type === 'cmd')
+        {
+            return 'start ms-settings:';
+        }
+        else if (type === 'system')
+        {
+            return 'lock  |  config  |  mic | monitor';
+        }
+        else if (type === 'counter')
+        {
+            return 'Start value (ex: 0)';
+        }
         return '';
     }
 
-    function pageSelectHtml(t) {
+    function pageSelectHtml(t)
+    {
         const others = (config.grids || []).filter(g => g.id !== curGrid().id);
-        if (!others.length) return '<span class="hint">No other pages to link to yet — add one first.</span>';
+        if (!others.length)
+        {
+            return '<span class="hint">No other pages to link to yet — add one first.</span>';
+        }
         return `<select id="tPage">${others.map(g => `<option value="${g.id}" ${g.id === t.value ? 'selected' : ''}>${esc(g.name)}</option>`).join('')}</select>`;
     }
 
-    function typeHint(type) {
-        if (type === 'app') return 'Program name on PATH (chrome, notepad…) or a full .exe path via Browse.';
-        else if (type === 'url') return 'Opens in your default browser.';
-        else if (type === 'page') return 'Tapping (or clicking) this tile switches the panel to the chosen page.';
-        else if (type === 'cmd') return 'Runs a shell command (advanced).';
-        else if (type === 'system') return 'lock = lock screen · config = open this editor · mic = toggle the device mic. · monitor = hide the panel and use the device as a normal monitor (press the knob to return).';
-        else if (type === 'counter') return 'Display interactive counter.';
+    function typeHint(type)
+    {
+        if (type === 'app')
+        {
+            return 'Program name on PATH (chrome, notepad…) or a full .exe path via Browse.';
+        }
+        else if (type === 'url')
+        {
+            return 'Opens in your default browser.';
+        }
+        else if (type === 'page')
+        {
+            return 'Tapping (or clicking) this tile switches the panel to the chosen page.';
+        }
+        else if (type === 'cmd')
+        {
+            return 'Runs a shell command (advanced).';
+        }
+        else if (type === 'system')
+        {
+            return 'lock = lock screen · config = open this editor · mic = toggle the device mic. · monitor = hide the panel and use the device as a normal monitor (press the knob to return).';
+        }
+        else if (type === 'counter')
+        {
+            return 'Display interactive counter.';
+        }
         return '';
     }
 
     // ---- dashboard page (web) ----
-    function renderDashboard() {
+    function renderDashboard()
+    {
         const g = curGrid();
         document.getElementById('tilegrid').innerHTML = '';
         document.getElementById('tileform').innerHTML = '';
         document.getElementById('iconpane').innerHTML = '';
-        if (!g.auth) g.auth = g.haToken ? {type: 'ha', token: g.haToken} : {type: 'none'};
+        if (!g.auth)
+        {
+            g.auth = g.haToken ? {type: 'ha', token: g.haToken} : {type: 'none'};
+        }
         delete g.haToken;
         const el = document.getElementById('gridmeta');
         el.innerHTML = `
@@ -1068,22 +1401,26 @@
       <div class="row" style="margin-top:10px"><button class="danger" id="gDelete">Delete page</button></div>
       <p class="hint" id="authHint"></p>
       <p class="hint">Shown full-screen on the panel. Knob scrolls · tap clicks · double-click the knob returns to the page selector.</p>`;
-        document.getElementById('gName').oninput = e => {
+        document.getElementById('gName').oninput = e =>
+        {
             g.name = e.target.value;
             renderGrids();
             markDirty();
         };
-        document.getElementById('gUrl').oninput = e => {
+        document.getElementById('gUrl').oninput = e =>
+        {
             g.url = e.target.value;
             markDirty();
         };
-        document.getElementById('gAuth').onchange = e => {
+        document.getElementById('gAuth').onchange = e =>
+        {
             setAuthType(g, e.target.value);
             renderAuthFields(g);
             markDirty();
         };
         document.getElementById('gDelete').onclick = deleteCurrentPage;
-        document.getElementById('gExt').onchange = e => {
+        document.getElementById('gExt').onchange = e =>
+        {
             g.linksExternal = e.target.checked;
             markDirty();
         };
@@ -1091,79 +1428,115 @@
         renderAuthFields(g);
     }
 
-    function setAuthType(g, type) {
-        if (type === 'ha') g.auth = {type: 'ha', token: (g.auth && g.auth.token) || ''};
-        else if (type === 'basic') g.auth = {
-            type: 'basic',
-            user: (g.auth && g.auth.user) || '',
-            pass: (g.auth && g.auth.pass) || ''
-        };
-        else if (type === 'header') g.auth = {
-            type: 'header',
-            headers: (g.auth && g.auth.headers && g.auth.headers.length) ? g.auth.headers : [{name: '', value: ''}]
-        };
-        else g.auth = {type: 'none'};
+    function setAuthType(g, type)
+    {
+        if (type === 'ha')
+        {
+            g.auth = {type: 'ha', token: (g.auth && g.auth.token) || ''};
+        }
+        else if (type === 'basic')
+        {
+            g.auth = {
+                type: 'basic',
+                user: (g.auth && g.auth.user) || '',
+                pass: (g.auth && g.auth.pass) || ''
+            };
+        }
+        else if (type === 'header')
+        {
+            g.auth = {
+                type: 'header',
+                headers: (g.auth && g.auth.headers && g.auth.headers.length) ? g.auth.headers : [{name: '', value: ''}]
+            };
+        }
+        else
+        {
+            g.auth = {type: 'none'};
+        }
     }
 
-    function renderAuthFields(g) {
+    function renderAuthFields(g)
+    {
         const el = document.getElementById('authFields'), hint = document.getElementById('authHint');
         const t = g.auth.type;
-        if (t === 'ha') {
+        if (t === 'ha')
+        {
             el.innerHTML = `<div class="row"><label>Token</label>${secretInput(g.auth.token, 'id="aTok" placeholder="long-lived access token"')}</div>`;
-            document.getElementById('aTok').oninput = e => {
+            document.getElementById('aTok').oninput = e =>
+            {
                 g.auth.token = e.target.value;
                 markDirty();
             };
             hint.innerHTML = '<b>Home Assistant</b> (no keyboard on the panel): profile → Security → Long-Lived Access Tokens → Create, paste above. The panel signs in automatically.';
-        } else if (t === 'basic') {
+        }
+        else if (t === 'basic')
+        {
             el.innerHTML = `<div class="row"><label>User</label><input id="aUser" value="${esc(g.auth.user)}"></div>
         <div class="row"><label>Password</label>${secretInput(g.auth.pass, 'id="aPass"')}</div>`;
-            document.getElementById('aUser').oninput = e => {
+            document.getElementById('aUser').oninput = e =>
+            {
                 g.auth.user = e.target.value;
                 markDirty();
             };
-            document.getElementById('aPass').oninput = e => {
+            document.getElementById('aPass').oninput = e =>
+            {
                 g.auth.pass = e.target.value;
                 markDirty();
             };
             hint.innerHTML = 'Sent as an HTTP Basic Auth header to the dashboard host (common behind nginx / a reverse proxy).';
-        } else if (t === 'header') {
+        }
+        else if (t === 'header')
+        {
             el.innerHTML = g.auth.headers.map((h, i) => `<div class="row"><input class="aHN" data-i="${i}" value="${esc(h.name)}" placeholder="Header name" style="flex:2">${secretInput(h.value, `class="aHV" data-i="${i}" placeholder="value"`, 'flex:3')}<button class="aHD" data-i="${i}" title="remove">✕</button></div>`).join('')
                 + `<div class="row"><button id="aHAdd">+ header</button></div>`;
-            el.querySelectorAll('.aHN').forEach(x => x.oninput = e => {
+            el.querySelectorAll('.aHN').forEach(x => x.oninput = e =>
+            {
                 g.auth.headers[+e.target.dataset.i].name = e.target.value;
                 markDirty();
             });
-            el.querySelectorAll('.aHV').forEach(x => x.oninput = e => {
+            el.querySelectorAll('.aHV').forEach(x => x.oninput = e =>
+            {
                 g.auth.headers[+e.target.dataset.i].value = e.target.value;
                 markDirty();
             });
-            el.querySelectorAll('.aHD').forEach(b => b.onclick = e => {
+            el.querySelectorAll('.aHD').forEach(b => b.onclick = e =>
+            {
                 g.auth.headers.splice(+e.currentTarget.dataset.i, 1);
-                if (!g.auth.headers.length) g.auth.headers.push({name: '', value: ''});
+                if (!g.auth.headers.length)
+                {
+                    g.auth.headers.push({name: '', value: ''});
+                }
                 renderAuthFields(g);
                 markDirty();
             });
-            document.getElementById('aHAdd').onclick = () => {
+            document.getElementById('aHAdd').onclick = () =>
+            {
                 g.auth.headers.push({name: '', value: ''});
                 renderAuthFields(g);
                 markDirty();
             };
             hint.innerHTML = 'Header(s) added to requests to the dashboard host — e.g. <code>Authorization: Bearer …</code>, or Cloudflare Access <code>CF-Access-Client-Id</code> + <code>CF-Access-Client-Secret</code>.';
-        } else {
+        }
+        else
+        {
             el.innerHTML = '';
             hint.innerHTML = 'No authentication — for public pages or anonymous-access dashboards.';
         }
     }
 
     // ---- app page ----
-    function renderAppPage() {
+    function renderAppPage()
+    {
         const g = curGrid();
         const def = appDefs.find(a => a.id === g.app);
         // Apps that embed a programmable grid (def.grid) keep the tile editor populated; render() fills it.
-        if (!(def && def.grid)) ['tilegrid', 'mergebar', 'tileform', 'iconpane'].forEach(id => {
-            document.getElementById(id).innerHTML = '';
-        });
+        if (!(def && def.grid))
+        {
+            ['tilegrid', 'mergebar', 'tileform', 'iconpane'].forEach(id =>
+            {
+                document.getElementById(id).innerHTML = '';
+            });
+        }
         const el = document.getElementById('gridmeta');
         el.innerHTML = `
       <div class="row"><label>Name</label><input id="gName" value="${esc(g.name)}"></div>
@@ -1175,12 +1548,14 @@
       ${rotRowHtml(g)}
       <div class="row" style="margin-top:10px"><button class="danger" id="gDelete">Delete page</button></div>
       <p class="hint">${def ? esc(def.name) + ' runs locally and shows full-screen on the panel.' : 'Pick an app, then set its options below.'}</p>`;
-        document.getElementById('gName').oninput = e => {
+        document.getElementById('gName').oninput = e =>
+        {
             g.name = e.target.value;
             renderGrids();
             markDirty();
         };
-        document.getElementById('gApp').onchange = e => {
+        document.getElementById('gApp').onchange = e =>
+        {
             setApp(g, e.target.value);
             render();
             markDirty();
@@ -1191,56 +1566,90 @@
         updateVisibility(g);
     }
 
-    function setApp(g, id) {
+    function setApp(g, id)
+    {
         const prev = appDefs.find(a => a.id === g.app);
         g.app = id;
         const def = appDefs.find(a => a.id === id);
         g.options = {};
-        if (def) {
-            def.options.forEach(o => {
+        if (def)
+        {
+            def.options.forEach(o =>
+            {
                 g.options[o.key] = o.default;
             });
-            if (!g.name || g.name === 'App' || (prev && g.name === prev.name)) g.name = def.name;  // auto-name from the app
-            if (def.grid) {                                       // app embeds a programmable tile grid — seed it
+            if (!g.name || g.name === 'App' || (prev && g.name === prev.name))
+            {
+                g.name = def.name;
+            }  // auto-name from the app
+            if (def.grid)
+            {                                       // app embeds a programmable tile grid — seed it
                 g.cols = def.grid.cols || 2;
                 g.rows = def.grid.rows || 2;
-                if (!Array.isArray(g.tiles) || !g.tiles.length) g.tiles = (def.grid.defaults || []).map(t => Object.assign({}, t));
+                if (!Array.isArray(g.tiles) || !g.tiles.length)
+                {
+                    g.tiles = (def.grid.defaults || []).map(t => Object.assign({}, t));
+                }
             }
         }
     }
 
-    function renderAppOpts(g, def) {
+    function renderAppOpts(g, def)
+    {
         const el = document.getElementById('appOpts');
-        if (!el) return;
-        if (!def) {
+        if (!el)
+        {
+            return;
+        }
+        if (!def)
+        {
             el.innerHTML = '';
             return;
         }
-        if (!g.options) g.options = {};
-        el.innerHTML = (def.options || []).map(o => {
+        if (!g.options)
+        {
+            g.options = {};
+        }
+        el.innerHTML = (def.options || []).map(o =>
+        {
             const defaultValue = (o.key in g.options) ? g.options[o.key] : o.default;
             const visibleAttr = o.visibleWhen
                 ? `data-visible-when='${esc(JSON.stringify(o.visibleWhen))}'`
                 : '';
             let field;
-            if (o.type === 'select') {
+            if (o.type === 'select')
+            {
                 field = renderTypeSelect(o.key, o.choices, defaultValue,);
-            } else if (o.type === 'bool') {
+            }
+            else if (o.type === 'bool')
+            {
                 field = renderTypeBool(o.key, defaultValue);
-            } else if (o.type === 'secret') {
+            }
+            else if (o.type === 'secret')
+            {
                 field = secretInput(defaultValue, `class="aopt" data-key="${esc(o.key)}"`);
-            } else if (o.type === 'color') {
+            }
+            else if (o.type === 'color')
+            {
                 field = renderTypeColor(o.key, defaultValue);
-            } else if (o.type === 'section') {
+            }
+            else if (o.type === 'section')
+            {
                 return ` <details class="section">
                     <summary>${esc(o.label)}</summary>
                     ${renderSection(o.options, g)}
                  </details>`;
-            } else if (o.type === 'file_image') {
+            }
+            else if (o.type === 'file_image')
+            {
                 field = renderTypeFileImage(o.key, defaultValue);
-            } else if (o.type === 'file_video') {
+            }
+            else if (o.type === 'file_video')
+            {
                 field = renderTypeFileVideo(o.key, defaultValue);
-            } else {
+            }
+            else
+            {
                 field = `<input class="aopt" data-key="${esc(o.key)}" value="${esc(defaultValue)}">`;
             }
 
@@ -1248,7 +1657,8 @@
             return `<div class="row" ${visibleAttr} ><label>${esc(o.label)}</label>${field}</div>${help}`;
         }).join('');
 
-        el.querySelectorAll('.aopt').forEach(inp => inp.onchange = e => {
+        el.querySelectorAll('.aopt').forEach(inp => inp.onchange = e =>
+        {
             const o = (def.options || []).find(x => x.key === e.target.dataset.key);
             g.options[e.target.dataset.key] = (o && o.type === 'bool') ? e.target.checked : e.target.value;
             updateVisibility(g);
@@ -1256,15 +1666,20 @@
         });
     }
 
-    function updateVisibility(g) {
-        document.querySelectorAll('[data-visible-when]').forEach(el => {
+    function updateVisibility(g)
+    {
+        document.querySelectorAll('[data-visible-when]').forEach(el =>
+        {
             const rule = JSON.parse(el.dataset.visibleWhen);
 
-            const visible = Object.entries(rule).every(([key, expected]) => {
+            const visible = Object.entries(rule).every(([key, expected]) =>
+            {
                 const current = g.options[key];
 
                 if (Array.isArray(expected))
+                {
                     return expected.includes(current);
+                }
 
                 return current === expected;
             });
@@ -1273,8 +1688,10 @@
         });
     }
 
-    function renderSection(options, g) {
-        return options.map(o => {
+    function renderSection(options, g)
+    {
+        return options.map(o =>
+        {
             const defaultValue = (o.key in g.options) ? g.options[o.key] : o.default;
             const visibleAttr = o.visibleWhen
                 ? `data-visible-when='${esc(JSON.stringify(o.visibleWhen))}'`
@@ -1282,29 +1699,44 @@
 
             let field;
 
-            if (o.type === 'select') {
+            if (o.type === 'select')
+            {
                 field = renderTypeSelect(o.key, o.choices, defaultValue);
-            } else if (o.type === 'bool') {
+            }
+            else if (o.type === 'bool')
+            {
                 field = renderTypeBool(o.key, defaultValue);
-            } else if (o.type === 'color') {
+            }
+            else if (o.type === 'color')
+            {
                 field = renderTypeColor(o.key, defaultValue);
-            } else if (o.type === 'secret') {
+            }
+            else if (o.type === 'secret')
+            {
                 field = secretInput(
                     v,
                     `class="aopt" data-key="${esc(o.key)}"`
                 );
-            } else if (o.type === 'section') {
+            }
+            else if (o.type === 'section')
+            {
                 return `
         <details class="settings-section">
           <summary>${esc(o.label)}</summary>
           ${renderSection(o.options || [], g)}
         </details>
       `;
-            } else if (o.type === 'file_image') {
+            }
+            else if (o.type === 'file_image')
+            {
                 field = renderTypeFileImage(o.key, defaultValue);
-            } else if (o.type === 'file_video') {
+            }
+            else if (o.type === 'file_video')
+            {
                 field = renderTypeFileVideo(o.key, defaultValue);
-            } else {
+            }
+            else
+            {
                 field = `
         <input
           class="aopt"
@@ -1328,10 +1760,12 @@
         }).join('');
     }
 
-    function renderTypeSelect(key, choices, defaultValue) {
+    function renderTypeSelect(key, choices, defaultValue)
+    {
         return `
         <select class="aopt" data-key="${esc(key)}">
-          ${choices.map(ch => {
+          ${choices.map(ch =>
+        {
             const val = Array.isArray(ch) ? ch[0] : ch;
             const lab = Array.isArray(ch) ? ch[1] : ch;
             return `
@@ -1345,11 +1779,13 @@
       `;
     }
 
-    function renderTypeBool(key, defaultValue) {
+    function renderTypeBool(key, defaultValue)
+    {
         return `<input type="checkbox" class="aopt" data-key="${esc(key)}" ${defaultValue ? 'checked' : ''} style="width:auto">`;
     }
 
-    function renderTypeColor(key, defaultValue) {
+    function renderTypeColor(key, defaultValue)
+    {
         return `<div class="color-picker">
                     <input
                       type="color"
@@ -1360,7 +1796,8 @@
                   </div>`;
     }
 
-    function renderTypeFileImage(key, value) {
+    function renderTypeFileImage(key, value)
+    {
         const preview = value
             ? `<img class="previewBackground" src="${value}" style="max-width:100px;max-height:60px;border-radius:6px;margin-top:6px;">`
             : '';
@@ -1382,7 +1819,8 @@
   `;
     }
 
-    function renderTypeFileVideo(key, value) {
+    function renderTypeFileVideo(key, value)
+    {
         const preview = value
             ? `<video class="previewBackground" src="${value}" style="max-width:100px;max-height:60px;border-radius:6px;margin-top:6px;">`
             : '';
@@ -1404,33 +1842,48 @@
   `;
     }
 
-    function deleteCurrentPage() {
-        if (config.grids.length <= 1) return;
+    function deleteCurrentPage()
+    {
+        if (config.grids.length <= 1)
+        {
+            return;
+        }
         config.grids.splice(gi, 1);
         gi = 0;
         ti = -1;
-        if (!config.grids.some(x => x.id === config.activeGridId)) config.activeGridId = config.grids[0].id;
+        if (!config.grids.some(x => x.id === config.activeGridId))
+        {
+            config.activeGridId = config.grids[0].id;
+        }
         render();
         markDirty();
     }
 
-    function render() {
+    function render()
+    {
         renderGrids();
-        if (view === 'settings') {
+        if (view === 'settings')
+        {
             renderSettings();
             return;
         }
         const g = curGrid();
-        if (g && g.kind === 'web') renderDashboard();
-        else if (g && g.kind === 'app') {
+        if (g && g.kind === 'web')
+        {
+            renderDashboard();
+        }
+        else if (g && g.kind === 'app')
+        {
             renderAppPage();
             const def = appDefs.find(a => a.id === g.app);
-            if (def && def.grid) {
+            if (def && def.grid)
+            {
                 renderTiles();
                 renderForm();
             }
         }   // app with an embedded grid -> show the tile editor too
-        else {
+        else
+        {
             renderMeta();
             renderTiles();
             renderForm();
@@ -1440,17 +1893,24 @@
     // ---- settings page ----
     const DEFAULT_SETTINGS = {launchMode: 'editor', micOnLaunch: false};
 
-    function appSettings() {
+    function appSettings()
+    {
         return Object.assign({}, DEFAULT_SETTINGS, config.settings || {});
     }
 
-    function renderSettings() {
-        ['tilegrid', 'mergebar', 'tileform', 'iconpane'].forEach(id => {
+    function renderSettings()
+    {
+        ['tilegrid', 'mergebar', 'tileform', 'iconpane'].forEach(id =>
+        {
             const e = document.getElementById(id);
-            if (e) e.innerHTML = '';
+            if (e)
+            {
+                e.innerHTML = '';
+            }
         });
         const s = appSettings();
-        const currentRot = () => {
+        const currentRot = () =>
+        {
             const r = Object.assign({enabled: false, interval: 30}, (config.settings || {}).rotation || {});
             r.cats = Object.assign({
                 grids: false,
@@ -1543,33 +2003,46 @@
       ${tab === 'software' ? swHtml : tab === 'hardware' ? hwHtml : monHtml}
       <div class="row" style="margin-top:22px"><button id="sBack">← Back to pages</button></div>`;
 
-        document.getElementById('tabSw').onclick = () => {
+        document.getElementById('tabSw').onclick = () =>
+        {
             settingsTab = 'software';
             renderSettings();
         };
-        document.getElementById('tabHw').onclick = () => {
+        document.getElementById('tabHw').onclick = () =>
+        {
             settingsTab = 'hardware';
             renderSettings();
         };
-        document.getElementById('tabMon').onclick = () => {
+        document.getElementById('tabMon').onclick = () =>
+        {
             settingsTab = 'monitor';
             renderSettings();
         };
-        document.getElementById('sBack').onclick = () => {
+        document.getElementById('sBack').onclick = () =>
+        {
             view = 'pages';
             render();
         };
-        const setS = (k, v) => {
-            if (!config.settings) config.settings = {};
+        const setS = (k, v) =>
+        {
+            if (!config.settings)
+            {
+                config.settings = {};
+            }
             config.settings[k] = v;
             markDirty();
         };
 
-        if (tab === 'software') {
+        if (tab === 'software')
+        {
             document.getElementById('sLaunch').value = s.launchMode;
             document.getElementById('sLaunch').onchange = e => setS('launchMode', e.target.value);
-            const saveRot = r => {
-                if (!config.settings) config.settings = {};
+            const saveRot = r =>
+            {
+                if (!config.settings)
+                {
+                    config.settings = {};
+                }
                 config.settings.rotation = r;
                 markDirty();
             };
@@ -1577,37 +2050,48 @@
             document.getElementById('sRotG').checked = !!rot.cats.grids;
             document.getElementById('sRotD').checked = !!rot.cats.dashboards;
             document.getElementById('sRotA').checked = !!rot.cats.apps;
-            document.getElementById('sRot').onchange = e => {
+            document.getElementById('sRot').onchange = e =>
+            {
                 const r = currentRot();
                 r.enabled = e.target.checked;
                 saveRot(r);
             };
-            document.getElementById('sRotInt').onchange = e => {
+            document.getElementById('sRotInt').onchange = e =>
+            {
                 const r = currentRot();
                 r.interval = Math.max(5, Math.min(3600, parseInt(e.target.value, 10) || 30));
                 e.target.value = r.interval;
                 saveRot(r);
             };
-            document.getElementById('sRotG').onchange = e => {
+            document.getElementById('sRotG').onchange = e =>
+            {
                 const r = currentRot();
                 r.cats.grids = e.target.checked;
                 saveRot(r);
             };
-            document.getElementById('sRotD').onchange = e => {
+            document.getElementById('sRotD').onchange = e =>
+            {
                 const r = currentRot();
                 r.cats.dashboards = e.target.checked;
                 saveRot(r);
             };
-            document.getElementById('sRotA').onchange = e => {
+            document.getElementById('sRotA').onchange = e =>
+            {
                 const r = currentRot();
                 r.cats.apps = e.target.checked;
                 saveRot(r);
             };
-        } else if (tab === 'hardware') {
+        }
+        else if (tab === 'hardware')
+        {
             // Lighting writes go straight to the device (and persist in config) via the main process — no Save needed.
-            const live = patch => {
+            const live = patch =>
+            {
                 Object.assign(L, patch);
-                if (!config.settings) config.settings = {};
+                if (!config.settings)
+                {
+                    config.settings = {};
+                }
                 config.settings.lighting = Object.assign({}, L);
                 ipcRenderer.send('setLighting', patch);
             };
@@ -1616,31 +2100,41 @@
             document.getElementById('sMic').onchange = e => setS('micOnLaunch', e.target.checked);
             document.getElementById('sEffect').onchange = e => live({effect: parseInt(e.target.value, 10)});
             const cv = document.getElementById('sColorVal');
-            document.getElementById('sColor').onchange = e => {
+            document.getElementById('sColor').onchange = e =>
+            {
                 const {hue, sat} = hexToHsv(e.target.value);
                 cv.textContent = `H${hue} S${sat}`;
                 live({hue, sat});
             };
             const bv = document.getElementById('sBrightVal');
-            document.getElementById('sBright').oninput = e => {
+            document.getElementById('sBright').oninput = e =>
+            {
                 bv.textContent = e.target.value;
             };
             document.getElementById('sBright').onchange = e => live({brightness: parseInt(e.target.value, 10)});
             const sv = document.getElementById('sSpeedVal');
-            document.getElementById('sSpeed').oninput = e => {
+            document.getElementById('sSpeed').oninput = e =>
+            {
                 sv.textContent = e.target.value;
             };
             document.getElementById('sSpeed').onchange = e => live({speed: parseInt(e.target.value, 10)});
-            document.getElementById('sSaveLed').onclick = async () => {
+            document.getElementById('sSaveLed').onclick = async () =>
+            {
                 const msg = document.getElementById('sSaveLedMsg');
                 msg.textContent = 'saving…';
                 const ok = await ipcRenderer.invoke('saveLightingToDevice');
                 msg.textContent = ok ? 'saved to device ✓' : 'save failed';
             };
-        } else {
+        }
+        else
+        {
             // Monitor mode — knob turn/tap behavior (applied by the main process while in monitor mode)
-            const saveMon = patch => {
-                if (!config.settings) config.settings = {};
+            const saveMon = patch =>
+            {
+                if (!config.settings)
+                {
+                    config.settings = {};
+                }
                 config.settings.monitor = Object.assign(currentMon(), patch);
                 markDirty();
             };
@@ -1651,12 +2145,20 @@
         }
     }
 
-    function addPage(kind) {
+    function addPage(kind)
+    {
         view = 'pages';
         let g;
-        if (kind === 'web') g = {id: uid(), name: 'Dashboard', kind: 'web', url: '', auth: {type: 'none'}};
-        else if (kind === 'app') g = {id: uid(), name: 'App', kind: 'app', app: '', options: {}};
-        else {
+        if (kind === 'web')
+        {
+            g = {id: uid(), name: 'Dashboard', kind: 'web', url: '', auth: {type: 'none'}};
+        }
+        else if (kind === 'app')
+        {
+            g = {id: uid(), name: 'App', kind: 'app', app: '', options: {}};
+        }
+        else
+        {
             g = {id: uid(), name: 'New Grid', kind: 'grid', cols: 8, rows: 2, tiles: []};
             ensureTiles(g);
         }
@@ -1671,35 +2173,48 @@
     document.getElementById('addDash').onclick = () => addPage('web');
     document.getElementById('addApp').onclick = () => addPage('app');
     document.getElementById('saveBtn').onclick = doSave;
-    document.getElementById('settingsBtn').onclick = async () => {
+    document.getElementById('settingsBtn').onclick = async () =>
+    {
         view = view === 'settings' ? 'pages' : 'settings';
-        if (view === 'settings') {
+        if (view === 'settings')
+        {
             ledState = null;
-            try {
+            try
+            {
                 ledState = await ipcRenderer.invoke('getLighting');
-            } catch (e) {
+            } catch (e)
+            {
             }
         }
         render();
     };
-    document.addEventListener("click", async (e) => {
+    document.addEventListener("click", async (e) =>
+    {
         let btn = null;
         let filePath = null;
         let selector = null;
-        if (e.target.closest(".fileImageBtn")) {
+        if (e.target.closest(".fileImageBtn"))
+        {
             btn = e.target.closest(".fileImageBtn");
             filePath = await ipcRenderer.invoke('pickImage');
             selector = "img";
-        } else if (e.target.closest(".fileVideoBtn")) {
+        }
+        else if (e.target.closest(".fileVideoBtn"))
+        {
             btn = e.target.closest(".fileVideoBtn");
             filePath = await ipcRenderer.invoke('pickVideo');
             selector = "video";
-        } else {
+        }
+        else
+        {
             return;
         }
         const key = btn.dataset.key;
 
-        if (!filePath) return;
+        if (!filePath)
+        {
+            return;
+        }
 
         // update hidden input
         const input = document.querySelector(`input[data-key="${key}"]`);
@@ -1707,8 +2222,12 @@
 
         // update preview si existant
         const img = btn.parentElement.querySelector(selector);
-        if (img) img.src = filePath;
-        else {
+        if (img)
+        {
+            img.src = filePath;
+        }
+        else
+        {
             const newImg = document.createElement(selector);
             newImg.src = filePath;
             newImg.style.maxWidth = "100px";
@@ -1720,19 +2239,30 @@
 
         input.dispatchEvent(new Event("change", {bubbles: true}));
     });
-    window.addEventListener('keydown', e => {
-        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+    window.addEventListener('keydown', e =>
+    {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's')
+        {
             e.preventDefault();
-            if (dirty) doSave();
+            if (dirty)
+            {
+                doSave();
+            }
         }
     });
 
-    (async () => {
+    (async () =>
+    {
         config = await ipcRenderer.invoke('getConfig');
-        if (!config.grids) config.grids = [];
-        try {
+        if (!config.grids)
+        {
+            config.grids = [];
+        }
+        try
+        {
             appDefs = await ipcRenderer.invoke('getApps');
-        } catch (e) {
+        } catch (e)
+        {
         }
         render();
         setState('');
