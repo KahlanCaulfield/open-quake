@@ -309,8 +309,37 @@ function mediaKey(cmd) {
   try { robot.keyTap(k); return true; } catch (e) { return false; }
 }
 
+// Find the DK-QUAKE display. Match by its reported LABEL first — that survives scale/rotation/resolution
+// drift (e.g. a Windows/driver update bumping the panel off 100% scale, which changes bounds and would break
+// a size-only match). Fall back to the panel's size in logical, then physical (scale-corrected) pixels.
+function isPanelSize(w, h) { return (w === 1920 && h === 480) || (w === 480 && h === 1920); }
 function deviceDisplay() {
-  return screen.getAllDisplays().find(d => (d.bounds.width === 480 && d.bounds.height === 1920) || (d.bounds.width === 1920 && d.bounds.height === 480));
+  const all = screen.getAllDisplays();
+  return all.find(d => /dk.?quake|aris.?68/i.test(d.label || ''))
+    || all.find(d => isPanelSize(d.bounds.width, d.bounds.height))
+    || all.find(d => { const s = d.scaleFactor || 1; return isPanelSize(Math.round(d.bounds.width * s), Math.round(d.bounds.height * s)); });
+}
+// Snap the panel window to fully cover the DK-QUAKE display's CURRENT bounds. Called on first show and again
+// on every display change (orientation/scale/position resets from OS/driver updates) so the window re-fills
+// instead of sitting inset with the desktop showing around the edges. Logs requested-vs-actual for diagnosis.
+let panelShown = false, coverKey = '';
+// Make the panel window FULLY cover the DK-QUAKE display. A frameless window merely *sized* to a rotated
+// display's bounds doesn't composite to fill it (desktop bleeds around the edges); true ("simple") fullscreen
+// — "this window IS the screen" — fills it correctly even when the OS has the display rotated. Keyed on the
+// display's current geometry so we only re-enter fullscreen when it actually changes (no flicker on repeats),
+// and the skip-guard requires fullscreen to have actually stuck — so an early/failed attempt self-corrects.
+function fitPanel(reason) {
+  const d = deviceDisplay();
+  if (!d || !panelWin || panelWin.isDestroyed() || !panelShown) return;
+  const b = d.bounds, key = [b.x, b.y, b.width, b.height, d.rotation].join(',');
+  let fs = false; try { fs = panelWin.isSimpleFullScreen(); } catch (e) {}
+  if (key === coverKey && fs) return;                              // already covering this exact geometry
+  coverKey = key;
+  try { if (fs) panelWin.setSimpleFullScreen(false); } catch (e) {}   // drop fullscreen so we can re-place on the moved/rotated display
+  panelWin.setBounds({ x: b.x, y: b.y, width: b.width, height: b.height });
+  try { panelWin.setSimpleFullScreen(true); } catch (e) {}
+  console.log('fitPanel(' + (reason || '') + '): "' + (d.label || '?') + '" ' + JSON.stringify(b)
+    + ' rot=' + d.rotation + ' -> ' + JSON.stringify(panelWin.getBounds()) + ' fs=' + (() => { try { return panelWin.isSimpleFullScreen(); } catch (e) { return '?'; } })());
 }
 function placePanel() {
   const d = deviceDisplay();
@@ -323,13 +352,14 @@ function placePanel() {
     });
     panelWin.loadFile(path.join(__dirname, 'index.html'));
     panelWin.once('ready-to-show', () => {
-      const dd = deviceDisplay() || d;
-      panelWin.setBounds(dd.bounds); panelWin.setAlwaysOnTop(true); panelWin.show(); panelWin.focus();
+      panelShown = true;
+      panelWin.setAlwaysOnTop(true); panelWin.show(); panelWin.focus();
       setTimeout(() => panelWin.setAlwaysOnTop(false), 1500);
+      fitPanel('ready-to-show');
+      setTimeout(() => fitPanel('settle'), 400);   // external displays settle slowly — re-cover once geometry is final (no-op if already covering)
       pushToPanel();
-      console.log('panel placed at', JSON.stringify(panelWin.getBounds()));
     });
-  } else { panelWin.setBounds(d.bounds); panelWin.show(); pushToPanel(); }
+  } else { panelWin.show(); fitPanel('replace'); pushToPanel(); }
 }
 
 function openConfigWindow() {
@@ -576,7 +606,7 @@ app.whenReady().then(async () => {
 
   screen.on('display-added', () => { dev.screenOn(); setTimeout(placePanel, 800); });
   screen.on('display-removed', () => dev.screenOn());
-  screen.on('display-metrics-changed', () => setTimeout(placePanel, 500));
+  screen.on('display-metrics-changed', () => setTimeout(() => fitPanel('metrics-changed'), 500));
 });
 }
 app.on('window-all-closed', () => {});
