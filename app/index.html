@@ -116,9 +116,8 @@
   // on the PC while the board stays live on the device. Three paths cover every way a link opens:
   //   • a clicked <a href> — caught in the capture phase by an injected listener, funneled out via a
   //     console-message tag (the guest has no nodeIntegration, so the console is the host channel);
-  //   • window.open / target=_blank the page does itself — the webview's new-window event;
+  //   • window.open / target=_blank the page does itself — handled in main via setWindowOpenHandler;
   //   • a JS navigation away from the board (location = …) — will-navigate, which we abort + restore.
-  web.addEventListener('new-window', (e) => { if (webExternalLinks && e.url) ipcRenderer.send('openExternal', e.url); });
   web.addEventListener('will-navigate', (e) => {
     if (webExternalLinks && webReady && e.url && e.url !== curUrl) {
       ipcRenderer.send('openExternal', e.url);

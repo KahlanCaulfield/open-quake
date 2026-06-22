@@ -10,7 +10,7 @@
   },
   "scripts": {
     "start": "node build-smtc.js && electron .",
-    "rebuild": "electron-rebuild -v 23.0.0 -f",
+    "rebuild": "electron-rebuild -v 42.4.1 -f --only node-hid",
     "build:smtc": "node build-smtc.js",
     "dist": "node build-smtc.js && electron-builder --win"
   },
@@ -30,9 +30,9 @@
     "systeminformation": "^5.31.7"
   },
   "devDependencies": {
-    "@electron/rebuild": "^3.6.0",
-    "electron": "^23.0.0",
-    "electron-builder": "^24.13.3"
+    "@electron/rebuild": "^4.0.1",
+    "electron": "^42.4.1",
+    "electron-builder": "^26.0.12"
   },
   "build": {
     "appId": "com.teejs.openquake",

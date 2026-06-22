@@ -608,6 +608,18 @@ app.whenReady().then(async () => {
     }
   });
 
+  // window.open / target=_blank inside a dashboard webview. The old <webview> 'new-window' event was
+  // removed after Electron 22; setWindowOpenHandler is the modern path. Never spawn a popup window on the
+  // panel — open externally on the PC when the page opted in (linksExternal), otherwise just deny.
+  app.on('web-contents-created', (e, contents) => {
+    if (contents.getType() !== 'webview') return;
+    contents.setWindowOpenHandler(({ url }) => {
+      const g = activeGrid();
+      if (g && g.kind === 'web' && g.linksExternal && /^https?:/i.test(url)) { try { shell.openExternal(url); } catch (er) {} }
+      return { action: 'deny' };
+    });
+  });
+
   ipcMain.on('launch', (e, a) => runAction(a));
   ipcMain.on('volume', (e, v) => { if (robot) { try { if (v === 'mute') robot.keyTap('audio_mute'); else robot.keyTap(v > 0 ? 'audio_vol_up' : 'audio_vol_down'); } catch (er) {} } });
   ipcMain.on('switchGrid', (e, id) => { gotoGrid(id, true); if (rotateRunning) scheduleRotation(); });   // a manual pick resets the rotation timer
