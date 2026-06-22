@@ -132,7 +132,7 @@
   }
   const appIconCache = {};   // app value -> dataURL | false (failed) | null (in-flight)
   const urlIconPreview = {}; // iconCache path -> dataURL of a just-fetched URL icon (editor preview only; dodges file:// browser-cache staleness on Refresh)
-  const TYPES = [['', 'Empty'], ['app', 'App / Program'], ['url', 'Website (URL)'], ['page', 'Go to open-quake page'], ['cmd', 'Shell command'], ['open', 'Open file/folder'], ['system', 'System (lock/config)']];
+  const TYPES = [['', 'Empty'], ['app', 'App / Program'], ['url', 'Website (URL)'], ['page', 'Go to open-quake page'], ['cmd', 'Shell command'], ['open', 'Open file/folder'], ['system', 'System (lock/config)'], ['counter', 'Counter']];
   const uid = () => 'g' + Math.random().toString(36).slice(2, 8);
   const curGrid = () => config.grids[gi];
   const esc = s => (s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -435,7 +435,14 @@
     else el.innerHTML = t.icon ? `<span class="em">${t.icon}</span>` : `<span class="none">no emoji</span>`;
   }
 
-  function valuePlaceholder(type) { return type === 'url' ? 'https://…' : type === 'app' ? 'chrome  (or full path)' : type === 'cmd' ? 'start ms-settings:' : type === 'system' ? 'lock  |  config  |  mic  |  monitor' : ''; }
+  function valuePlaceholder(type) {
+    if (type === 'url') return 'https://…';
+    else if (type === 'app') return 'chrome  (or full path)';
+    else if (type === 'cmd') return 'start ms-settings:';
+    else if (type === 'system') return 'lock  |  config  |  mic | monitor';
+    else if (type === 'counter') return 'Start value (ex: 0)';
+    return '';
+  }
   function pageSelectHtml(t) {
     const others = (config.grids || []).filter(g => g.id !== curGrid().id);
     if (!others.length) return '<span class="hint">No other pages to link to yet — add one first.</span>';
@@ -443,10 +450,11 @@
   }
   function typeHint(type) {
     if (type === 'app') return 'Program name on PATH (chrome, notepad…) or a full .exe path via Browse.';
-    if (type === 'url') return 'Opens in your default browser.';
-    if (type === 'page') return 'Tapping (or clicking) this tile switches the panel to the chosen page.';
-    if (type === 'cmd') return 'Runs a shell command (advanced).';
-    if (type === 'system') return 'lock = lock screen · config = open this editor · mic = toggle the device mic · monitor = hide the panel and use the device as a normal monitor (press the knob to return).';
+    else if (type === 'url') return 'Opens in your default browser.';
+    else if (type === 'page') return 'Tapping (or clicking) this tile switches the panel to the chosen page.';
+    else if (type === 'cmd') return 'Runs a shell command (advanced).';
+    else if (type === 'system') return 'lock = lock screen · config = open this editor · mic = toggle the device mic. · monitor = hide the panel and use the device as a normal monitor (press the knob to return).';';
+    else if (type === 'counter') return 'Display interactive counter.';
     return '';
   }
 
