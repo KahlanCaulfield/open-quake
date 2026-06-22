@@ -596,10 +596,12 @@ app.whenReady().then(async () => {
     applyKnobSettings();
     applyMic(appSettings().micOnLaunch);
     // The mic indicator LED only latches once the panel is fully awake. At connect the device is still
-    // mid screen-on activation (screenOn fires at 0/300/800/1500ms), so this first setMic toggles the
-    // audio but the LED is dropped. Re-assert after activation settles — screenOn then setMic — which
-    // mirrors what a display re-wake does and forces the LED to follow the mic state.
-    setTimeout(() => { try { dev.screenOn(); } catch (e) {} applyMic(micState); console.log('mic LED re-assert:', micState); }, 2000);
+    // mid screen-on activation (screenOn fires at 0/300/800/1500ms), so the first setMic toggles the audio
+    // but the LED is dropped. Re-assert (screenOn then setMic — mirroring a display re-wake) on a stagger:
+    // a single 2s pass is sometimes too early on a cold boot, so repeat until the panel has surely settled.
+    // Uses the live micState, so a user toggle in the meantime is respected rather than overridden.
+    const reassertMic = tag => { try { dev.screenOn(); } catch (e) {} applyMic(micState); console.log('mic LED re-assert (' + tag + '):', micState); };
+    [2000, 5000, 9000].forEach(ms => setTimeout(() => reassertMic(ms + 'ms'), ms));
   });
   dev.on('error', e => console.log('dev error:', e.message));
   dev.start();
