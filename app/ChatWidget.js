@@ -1488,7 +1488,7 @@ ${c}` : c;
 `), g = this.list(d);
           l[l.length - 1] = g, n = n.substring(0, n.length - f.raw.length) + g.raw, s = s.substring(0, s.length - p.raw.length) + g.raw, r = d.substring(l.at(-1).raw.length).split(`
 `);
-          continue;
+
         }
       }
       return { type: "blockquote", raw: n, tokens: l, text: s };
@@ -2082,50 +2082,50 @@ ${e}</tr>
       switch (a.type) {
         case "space": {
           n += this.renderer.space(a);
-          continue;
+
         }
         case "hr": {
           n += this.renderer.hr(a);
-          continue;
+
         }
         case "heading": {
           n += this.renderer.heading(a);
-          continue;
+
         }
         case "code": {
           n += this.renderer.code(a);
-          continue;
+
         }
         case "table": {
           n += this.renderer.table(a);
-          continue;
+
         }
         case "blockquote": {
           n += this.renderer.blockquote(a);
-          continue;
+
         }
         case "list": {
           n += this.renderer.list(a);
-          continue;
+
         }
         case "html": {
           n += this.renderer.html(a);
-          continue;
+
         }
         case "def": {
           n += this.renderer.def(a);
-          continue;
+
         }
         case "paragraph": {
           n += this.renderer.paragraph(a);
-          continue;
+
         }
         case "text": {
           let o = a, c = this.renderer.text(o);
           for (; u + 1 < t.length && t[u + 1].type === "text"; ) o = t[++u], c += `
 ` + this.renderer.text(o);
           r ? n += this.renderer.paragraph({ type: "paragraph", raw: c, text: c, tokens: [{ type: "text", raw: c, text: c, escaped: !0 }] }) : n += c;
-          continue;
+
         }
         default: {
           let o = 'Token with "' + a.type + '" type was not found.';
