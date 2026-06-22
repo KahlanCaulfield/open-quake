@@ -525,6 +525,14 @@ app.whenReady().then(async () => {
     else if (!config.grids.some(g => g.id === config.activeGridId)) config.activeGridId = (config.grids[0] || {}).id || null;
     saveConfig(); pushToPanel(); applyKnobSettings(); refreshTray(); applyRotationSettings(wasRot);
   });
+  // Dans main.js
+  ipcMain.on('saveTileValue', (event, data) => {
+    const gridIndex = config.activeGridIndex || 0;
+    if (config.grids && config.grids[gridIndex] && config.grids[gridIndex].tiles[data.index]) {
+      config.grids[gridIndex].tiles[data.index].value = data.value;
+      saveConfig();
+    }
+  });
   ipcMain.handle('pickProgram', async () => {
     const r = await dialog.showOpenDialog(configWin, { properties: ['openFile'], filters: [{ name: 'Programs', extensions: ['exe', 'lnk', 'bat', 'cmd', 'com'] }, { name: 'All Files', extensions: ['*'] }] });
     return (r.canceled || !r.filePaths.length) ? null : r.filePaths[0];

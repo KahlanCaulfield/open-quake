@@ -24,6 +24,60 @@
   .tile.span .lb { font-size: 26px; }
   .tile.hit { background: linear-gradient(160deg, #2b8bff, #0a5bd0); border-color: #7CFFB2;
     color: #fff; transform: scale(.95); box-shadow: 0 0 28px rgba(43,139,255,.55); }
+  .tile-counter {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    align-items: stretch; /* Force les enfants à prendre toute la hauteur */
+    justify-content: space-between;
+    overflow: hidden;
+    border-radius: 18px; /* Aligné avec les arrondis de tes tuiles */
+  }
+
+  .counter-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1; /* Prend tout l'espace central disponible */
+    pointer-events: none; /* Le doigt traverse cette zone pour ne pas bloquer les clics */
+  }
+
+  .tile-counter .title {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 5px;
+    color: #6f8298;
+  }
+
+  .tile-counter .val {
+    font-size: 42px; /* Chiffre bien gros et lisible */
+    font-weight: 700;
+    color: #fff;
+  }
+
+  .tile-counter button {
+    background: rgba(36, 58, 85, 0.3); /* Léger fond transparent */
+    border: none;
+    color: #dbe5f0;
+    width: 25%; /* Chaque bouton prend un quart de la largeur de la tuile */
+    font-size: 36px; /* Des gros "+" et "-" bien visibles */
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+
+  /* Effet visuel quand on clique à la souris (sur PC) */
+  .tile-counter button:active {
+    background: rgba(30, 111, 208, 0.6);
+    color: #fff;
+  }
+  /* Effet visuel quand on touche au doigt */
+  .tile-counter button.btn-hit {
+    background: rgba(43, 139, 255, 0.8) !important;
+    color: #fff !important;
+    transition: none !important; /* Allumage instantané au toucher */
+  }
   #vol { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); font-size: 44px;
     color: #7CFFB2; background: rgba(5,10,16,.85); padding: 18px 30px; border-radius: 16px;
     opacity: 0; transition: opacity .12s; pointer-events: none; }
@@ -144,8 +198,22 @@
       d.dataset.i = i;
       d.style.gridColumn = `${col + 1} / span ${w}`;
       d.style.gridRow = `${row + 1} / span ${h}`;
-      const ic = t.iconSrc ? `<img class="ic-img" src="${t.iconSrc}">` : `<div class="ic">${t.icon || '▫️'}</div>`;
-      d.innerHTML = empty ? '' : `${ic}<div class="lb">${t.label || ''}</div>`;
+      if (t && t.type === 'counter') {
+        let count = parseInt(t.value) || 0;
+        d.innerHTML = `
+          <div class="tile-counter">
+            <button class="btn-minus">-</button>
+            <div class="counter-center">
+              <div class="title">${t.label || ''}</div>
+              <span class="val">${count}</span>
+            </div>
+            <button class="btn-plus">+</button>
+          </div>
+        `;
+      } else {
+        const ic = t.iconSrc ? `<img class="ic-img" src="${t.iconSrc}">` : `<div class="ic">${t.icon || '▫️'}</div>`;
+        d.innerHTML = empty ? '' : `${ic}<div class="lb">${t.label || ''}</div>`;
+      }
       grid.appendChild(d);
     });
   }
@@ -185,12 +253,39 @@
     if (i >= 0 && cfg.tiles[i] && cfg.tiles[i].type) { const el = grid.querySelector(`[data-i="${i}"]`); if (el) el.classList.add('hit'); }
     lastHit = i;
   }
+  let counterLocked = false;
+  let counterUnlockTimer = null;
   ipcRenderer.on('touch', (e, pts) => {
     if (introOpen) { if (pts.some(p => p.action === 1)) dismissIntro(); return; }   // any tap dismisses the intro
     if (selOpen) return; // ignore touch while picking a page
     const p = pts.find(p => p.action === 1) || pts[0]; if (!p) return;
     if (webMode) return webTouch(p);        // dashboard: forward as mouse to the webview
     const i = tileAt(p.x, 480 - p.y);
+
+    if (i >= 0 && cfg.tiles[i] && cfg.tiles[i].type === 'counter') {
+      if (p.action === 1) {
+        const tileWidth = 1920 / cfg.cols;
+        const relativeX = p.x % tileWidth;
+        const isMinus = relativeX < tileWidth / 2;
+        const tileEl = grid.querySelector(`[data-i="${i}"]`);
+        if (tileEl) {
+          const btnEl = tileEl.querySelector(isMinus ? '.btn-minus' : '.btn-plus');
+          if (btnEl) btnEl.classList.add('btn-hit');
+        }
+        clearTimeout(counterUnlockTimer);
+        counterUnlockTimer = setTimeout(() => {
+          counterLocked = false;
+          if (tileEl) {
+            tileEl.querySelectorAll('button').forEach(b => b.classList.remove('btn-hit'));
+          }
+        }, 150);
+        if (counterLocked) return;
+        counterLocked = true;
+        if (isMinus) updateCounter(i, -1);
+        else updateCounter(i, 1);
+      }
+      return;
+    }
     highlight(i);
     if (!armed && i >= 0 && cfg.tiles[i] && cfg.tiles[i].type) { armed = true; ipcRenderer.send('launch', cfg.tiles[i]); }
     clearTimeout(idleT);
@@ -286,6 +381,16 @@
       else { ipcRenderer.send('volume', 'mute'); flashVol('🔇'); }  // single-click -> mute
     }
   });
+  function updateCounter(idx, delta) {
+    const t = cfg.tiles[idx];
+    let count = parseInt(t.value) || 0;
+    count += delta;
+    t.value = count;
+
+    const el = grid.querySelector(`[data-i="${idx}"] .val`);
+    if (el) el.textContent = count;
+    ipcRenderer.send('saveTileValue', { gridId: cfg.id, index: idx, value: String(count) });
+  }
   function flashVol(t) { vol.textContent = t; vol.style.opacity = 1; clearTimeout(volT); volT = setTimeout(() => vol.style.opacity = 0, 500); }
 </script>
 </body>
