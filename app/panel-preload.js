@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('openQuakePanel', {
   toggleRotation() { ipcRenderer.send('toggleRotation'); },
   openExternal(url) { ipcRenderer.send('openExternal', url); },
   introDone() { ipcRenderer.send('introDone'); },
+  saveTileValue(gridId, index, value) { ipcRenderer.send('saveTileValue', { gridId, index, value }); },
   onGrid(callback) { return on('grid', callback); },
   onGridList(callback) { return on('gridList', callback); },
   onRotation(callback) { return on('rotation', callback); },

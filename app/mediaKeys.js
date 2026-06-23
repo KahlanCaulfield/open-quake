@@ -1,11 +1,15 @@
 'use strict';
-// Media key adapter — Windows implementation via robotjs.
-// Keeps the same { transport(cmd), volume(v) } interface as the hardened fork's adapter
-// so main.js doesn't need to know the backend. Swap this file to add platform backends later.
+// Media key adapter — Windows implementation via @jitsi/robotjs.
+// Keeps the { transport(cmd), volume(v), pasteShortcut() } interface so main.js
+// doesn't know the backend. Swap this file to add platform backends later.
 
 function createMediaKeys({ log = () => {} } = {}) {
   let robot = null;
-  try { robot = require('robotjs'); } catch (e) { log('robotjs unavailable (media keys off): ' + e.message); }
+  try { robot = require('@jitsi/robotjs'); }
+  catch (e) {
+    try { robot = require('robotjs'); }
+    catch (e2) { log('robotjs unavailable (media keys off): ' + e2.message); }
+  }
 
   return {
     transport(cmd) {
@@ -21,6 +25,11 @@ function createMediaKeys({ log = () => {} } = {}) {
         if (v === 'mute') robot.keyTap('audio_mute');
         else robot.keyTap(v > 0 ? 'audio_vol_up' : 'audio_vol_down');
       } catch (e) {}
+    },
+    // Used by the paste-text tile: sends Ctrl+V to the active foreground window.
+    pasteShortcut() {
+      if (!robot) return false;
+      try { robot.keyTap('v', 'control'); return true; } catch (e) { return false; }
     },
   };
 }

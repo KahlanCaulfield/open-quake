@@ -76,7 +76,18 @@
       d.dataset.i = i;
       d.style.gridColumn = `${col + 1} / span ${w}`;
       d.style.gridRow = `${row + 1} / span ${h}`;
-      if (!empty) {                                            // build via DOM nodes (never innerHTML) so a config-supplied label/icon can't inject markup
+      if (t && t.type === 'counter') {
+        // DOM-build everything (no innerHTML for label/value) so a config-supplied label can't inject markup
+        const wrap = document.createElement('div'); wrap.className = 'tile-counter';
+        const bMinus = document.createElement('button'); bMinus.className = 'btn-minus'; bMinus.textContent = '-';
+        const center = document.createElement('div'); center.className = 'counter-center';
+        const title = document.createElement('div'); title.className = 'title'; title.textContent = t.label || '';
+        const val = document.createElement('span'); val.className = 'val'; val.textContent = String(parseInt(t.value) || 0);
+        center.appendChild(title); center.appendChild(val);
+        const bPlus = document.createElement('button'); bPlus.className = 'btn-plus'; bPlus.textContent = '+';
+        wrap.appendChild(bMinus); wrap.appendChild(center); wrap.appendChild(bPlus);
+        d.appendChild(wrap);
+      } else if (!empty) {                                       // build via DOM nodes (never innerHTML) so a config-supplied label/icon can't inject markup
         if (t.iconSrc) { const im = document.createElement('img'); im.className = 'ic-img'; im.src = t.iconSrc; d.appendChild(im); }
         else { const icd = document.createElement('div'); icd.className = 'ic'; icd.textContent = t.icon || '▫️'; d.appendChild(icd); }
         const lb = document.createElement('div'); lb.className = 'lb'; lb.textContent = t.label || ''; d.appendChild(lb);
@@ -126,6 +137,19 @@
     const p = pts.find(p => p.action === 1) || pts[0]; if (!p) return;
     if (webMode) return webTouch(p);        // dashboard: forward as mouse to the webview
     const i = tileAt(p.x, 480 - p.y);
+    if (i >= 0 && cfg.tiles[i] && cfg.tiles[i].type === 'counter') {
+      if (p.action === 1) {
+        const tileWidth = 1920 / cfg.cols;
+        const isMinus = (p.x % tileWidth) < tileWidth / 2;
+        const tileEl = grid.querySelector(`[data-i="${i}"]`);
+        if (tileEl) {
+          const btn = tileEl.querySelector(isMinus ? '.btn-minus' : '.btn-plus');
+          if (btn) { btn.classList.add('btn-hit'); setTimeout(() => btn.classList.remove('btn-hit'), 150); }
+        }
+        if (!counterLocked) { counterLocked = true; updateCounter(i, isMinus ? -1 : 1); setTimeout(() => { counterLocked = false; }, 150); }
+      }
+      return;
+    }
     highlight(i);
     if (!armed && i >= 0 && cfg.tiles[i] && cfg.tiles[i].type) { armed = true; panelApi.launch(cfg.tiles[i]); }
     clearTimeout(idleT);
@@ -138,11 +162,19 @@
     const el = e.target.closest && e.target.closest('[data-i]');
     if (!el) return;
     const i = parseInt(el.dataset.i, 10);
-    if (i >= 0 && cfg.tiles[i] && cfg.tiles[i].type) {
-      highlight(i);
-      panelApi.launch(cfg.tiles[i]);
-      setTimeout(() => highlight(-1), 180);
+    if (i < 0 || !cfg.tiles[i] || !cfg.tiles[i].type) return;
+    if (cfg.tiles[i].type === 'counter') {
+      // For PC mouse: figure out which half of the tile got clicked, then update
+      const rect = el.getBoundingClientRect();
+      const isMinus = (e.clientX - rect.left) < rect.width / 2;
+      const btn = el.querySelector(isMinus ? '.btn-minus' : '.btn-plus');
+      if (btn) { btn.classList.add('btn-hit'); setTimeout(() => btn.classList.remove('btn-hit'), 150); }
+      updateCounter(i, isMinus ? -1 : 1);
+      return;
     }
+    highlight(i);
+    panelApi.launch(cfg.tiles[i]);
+    setTimeout(() => highlight(-1), 180);
   });
 
   // ---- dashboard touch -> mouse (tap = click, drag = move) ----
@@ -221,4 +253,15 @@
       else { panelApi.volume('mute'); flashVol('🔇'); }  // single-click -> mute
     }
   });
+  let counterLocked = false;
+  function updateCounter(idx, delta) {
+    const t = cfg.tiles[idx];
+    if (!t) return;
+    const count = (parseInt(t.value) || 0) + delta;
+    t.value = String(count);
+    const el = grid.querySelector(`[data-i="${idx}"] .val`);
+    if (el) el.textContent = String(count);
+    panelApi.saveTileValue(cfg.id, idx, String(count));
+  }
+
   function flashVol(t) { vol.textContent = t; vol.style.opacity = 1; clearTimeout(volT); volT = setTimeout(() => vol.style.opacity = 0, 500); }

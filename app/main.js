@@ -1,6 +1,6 @@
 'use strict';
 // DK-QUAKE launcher: multi-grid panel + PC config editor, on the open Aris68Connector driver.
-const { app, BrowserWindow, Tray, Menu, nativeImage, screen, powerSaveBlocker, ipcMain, shell, dialog, session, net, safeStorage } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, screen, powerSaveBlocker, ipcMain, shell, dialog, session, net, safeStorage, clipboard } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -364,8 +364,20 @@ function runAction(a) {
         if (a.value === 'lock') lockWorkstation();
         else if (a.value === 'mic') toggleMic();
         break;
+      case 'paste_text': pasteText(a.value); break;
+      case 'counter': break;   // counter changes are saved by the panel directly via saveTileValue IPC; no main-process action needed on tap
     }
   } catch (e) { console.log('action error:', e.message); }
+}
+
+// Paste-text tile: write the configured text to the Windows clipboard, then synthesize Ctrl+V into the
+// active foreground window. Clipboard.writeText is built into Electron; the Ctrl+V keystroke uses the
+// existing media-keys backend (robotjs via @jitsi/robotjs). Note: this overwrites the user's clipboard.
+function pasteText(value) {
+  if (typeof value !== 'string' || value === '') return;
+  try { clipboard.writeText(value); } catch (e) { console.log('pasteText clipboard error:', e.message); return; }
+  // tiny delay so the clipboard has time to settle before Ctrl+V is sent
+  setTimeout(() => { try { mediaKeys.pasteShortcut(); } catch (e) { console.log('pasteText keystroke error:', e.message); } }, 30);
 }
 
 // Media transport for the Music page. The adapter keeps the backend narrow:
@@ -600,6 +612,13 @@ app.whenReady().then(async () => {
   ipcMain.on('toggleRotation', (e) => { if (!isFrom(e, panelWin)) return; toggleRotation(); });
   ipcMain.on('openConfig', (e) => { if (!isFrom(e, panelWin) && !isFrom(e, configWin)) return; openConfigWindow(); });
   ipcMain.on('introDone', (e) => { if (!isFrom(e, panelWin)) return; config.introShown = true; saveConfig(); });   // remember the intro was dismissed
+  ipcMain.on('saveTileValue', (e, data) => {
+    if (!isFrom(e, panelWin) || !data || typeof data.gridId !== 'string' || !Number.isInteger(data.index) || typeof data.value !== 'string') return;
+    const g = (config.grids || []).find(x => x.id === data.gridId);
+    if (!g || !Array.isArray(g.tiles) || !g.tiles[data.index]) return;
+    g.tiles[data.index].value = data.value;
+    saveConfig();
+  });
   ipcMain.on('openExternal', (e, url) => { if (!isFrom(e, panelWin) && !isFrom(e, configWin)) return; openExternalUrl(url); });
   ipcMain.handle('getConfig', (e) => isFrom(e, configWin) ? config : null);
   ipcMain.handle('getApps', (e) => isFrom(e, configWin) ? loadApps() : []);
