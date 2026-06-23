@@ -12,7 +12,8 @@ const {
     shell,
     dialog,
     session,
-    net
+    net,
+    clipboard
 } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -21,14 +22,7 @@ const {exec} = require('child_process');
 const {pathToFileURL} = require('url');
 const HID = require('node-hid');
 const Aris68Connector = require(path.join(__dirname, '..', 'src', 'Aris68Connector'));
-let robot = null;
-try
-{
-    robot = require('robotjs');
-} catch (e)
-{
-    console.log('robotjs unavailable (knob-volume off):', e.message);
-}
+const {keyboard, Key, mouse, Button, Point} = require("@nut-tree-fork/nut-js");
 
 const USER_DIR = app.getPath('userData');
 const CONFIG_PATH = path.join(USER_DIR, 'config.json');                  // writable — works inside a packaged app too
@@ -616,7 +610,8 @@ async function getAppIconDataUrl(value)
     try
     {
         const p = await resolveAppPath(value);
-        if (typeof p !== 'string' || p.trim() === '') {
+        if (typeof p !== 'string' || p.trim() === '')
+        {
             return null;
         }
         const img = await app.getFileIcon(p, {size: 'large'});
@@ -696,6 +691,9 @@ async function runAction(a)
                     enterMonitorMode();
                 }   // hand the device screen to Windows; press the knob to return
                 break;
+            case 'paste_text':
+                execPast(a.value);
+                break;
         }
     } catch (e)
     {
@@ -703,26 +701,36 @@ async function runAction(a)
     }
 }
 
-// Media transport for the Music page — global media keys via robotjs (instant, in-process; Windows
-// routes them to the active SMTC session, the same one nowplaying.js reports).
-function mediaKey(cmd)
+async function execPast(value)
 {
-    if (!robot)
+    clipboard.writeText(value);
+    await keyboard.pressKey(Key.LeftControl, Key.V);
+    await keyboard.releaseKey(Key.LeftControl, Key.V);
+}
+
+async function mediaKey(cmd)
+{
+    const map = {
+        playpause: Key.AudioPlay,
+        next: Key.AudioNext,
+        prev: Key.AudioPrev,
+        stop: Key.AudioStop
+    };
+
+    const key = map[cmd];
+    if (!key)
     {
         return false;
     }
-    const map = {playpause: 'audio_play', next: 'audio_next', prev: 'audio_prev', stop: 'audio_stop'};
-    const k = map[cmd];
-    if (!k)
-    {
-        return false;
-    }
+
     try
     {
-        robot.keyTap(k);
+        await keyboard.pressKey(key);
+        await keyboard.releaseKey(key);
         return true;
     } catch (e)
     {
+        console.error("Media key press failed:", e);
         return false;
     }
 }
@@ -911,62 +919,59 @@ function toggleMonitorMode()
 
 // Monitor-mode touch -> Windows cursor: tap = left-click, finger-drag = move with the button held, lift =
 // release. Maps the panel's bottom-left-origin coords (x:0..1920, y:0..480) into the device monitor's screen
-// position and drives the OS cursor via robotjs (same lib as knob-volume). A short idle timer releases the
+// position and drives the OS cursor via nutjs (same lib as knob-volume). A short idle timer releases the
 // button if the device never sends an explicit lift frame (mirrors the dashboard webTouch logic).
-let touchDown = false, touchIdle = null;
+let touchDown = false;
+let touchIdle = null;
 
-function injectTouch(p)
+async function injectTouch(p)
 {
-    if (!robot)
-    {
-        return;
-    }
     const d = deviceDisplay();
     if (!d)
     {
         return;
     }
     const b = d.bounds;
+
+    // Coordinate mapping
     const x = Math.round(b.x + Math.max(0, Math.min(1920, p.x)));
-    const y = Math.round(b.y + Math.max(0, Math.min(480, 480 - p.y)));   // device origin is bottom-left -> flip Y for the top-left screen
+    const y = Math.round(b.y + Math.max(0, Math.min(480, 480 - p.y)));
+
     clearTimeout(touchIdle);
+
     try
     {
         if (p.action === 1)
         {
-            robot.moveMouse(x, y);
+            // 1. Move to the new coordinate
+            await mouse.setPosition(new Point(x, y));
+
+            // 2. If not down yet, press the button
             if (!touchDown)
             {
                 touchDown = true;
-                robot.mouseToggle('down', 'left');
+                await mouse.pressButton(Button.LEFT);
             }
+
+            // 3. Reset idle timer
             touchIdle = setTimeout(releaseTouch, 140);
         }
         else
         {
-            releaseTouch();
+            await releaseTouch();
         }
     } catch (e)
     {
+        console.error("Touch injection error:", e);
     }
 }
 
-function releaseTouch()
+async function releaseTouch()
 {
-    clearTimeout(touchIdle);
     if (touchDown)
     {
+        await mouse.releaseButton(Button.LEFT);
         touchDown = false;
-        try
-        {
-            if (!robot)
-            {
-                return;
-            }
-            robot.mouseToggle('up', 'left');
-        } catch (e)
-        {
-        }
     }
 }
 
@@ -979,6 +984,56 @@ function monitorCfg()
         knobTurn: m.knobTurn === 'volume' ? 'volume' : 'scroll',                   // default: scroll
         knobTap: ['leftclick', 'enter', 'rightclick', 'mute'].includes(m.knobTap) ? m.knobTap : 'enter',   // default: enter
     };
+}
+
+async function monitorKnob(k)
+{
+    const m = monitorCfg();
+
+    try
+    {
+        if (k.type === 'rotate')
+        {
+            if (m.knobTurn === 'scroll')
+            {
+                // nut.js handles scroll direction intuitively
+                // Positive/Negative values determine the scroll amount
+                const scrollAmount = 120;
+                await mouse.scrollDown(k.dir > 0 ? scrollAmount : -scrollAmount);
+            }
+            else
+            {
+                // Using keyboard to tap media keys
+                await keyboard.pressKey(k.dir > 0 ? Key.AudioVolUp : Key.AudioVolDown);
+                await keyboard.releaseKey(k.dir > 0 ? Key.AudioVolUp : Key.AudioVolDown);
+            }
+        }
+        else if (k.type === 'press' && k.index === 1)
+        {
+            // Mapping tap actions to mouse or keyboard events
+            if (m.knobTap === 'leftclick')
+            {
+                await mouse.click(Button.LEFT);
+            }
+            else if (m.knobTap === 'enter')
+            {
+                await keyboard.pressKey(Key.Enter);
+                await keyboard.releaseKey(Key.Enter);
+            }
+            else if (m.knobTap === 'rightclick')
+            {
+                await mouse.click(Button.RIGHT);
+            }
+            else
+            {
+                await keyboard.pressKey(Key.AudioMute);
+                await keyboard.releaseKey(Key.AudioMute);
+            }
+        }
+    } catch (e)
+    {
+        console.error("Knob action failed:", e);
+    }
 }
 
 function monitorKnob(k)
@@ -1425,23 +1480,25 @@ else
         });
 
         ipcMain.on('launch', (e, a) => runAction(a));
-        ipcMain.on('volume', (e, v) =>
+        ipcMain.on('volume', async (e, v) =>
         {
-            if (robot)
+            try
             {
-                try
+                if (v === 'mute')
                 {
-                    if (v === 'mute')
-                    {
-                        robot.keyTap('audio_mute');
-                    }
-                    else
-                    {
-                        robot.keyTap(v > 0 ? 'audio_vol_up' : 'audio_vol_down');
-                    }
-                } catch (er)
-                {
+                    await keyboard.pressKey(Key.AudioMute);
+                    await keyboard.releaseKey(Key.AudioMute);
                 }
+                else
+                {
+                    // Use the appropriate key based on volume delta
+                    const key = v > 0 ? Key.AudioVolUp : Key.AudioVolDown;
+                    await keyboard.pressKey(key);
+                    await keyboard.releaseKey(key);
+                }
+            } catch (er)
+            {
+                console.error("Failed to process volume command:", er);
             }
         });
         ipcMain.on('switchGrid', (e, id) =>

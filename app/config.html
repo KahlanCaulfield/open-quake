@@ -1330,6 +1330,10 @@
         {
             return 'Start value (ex: 0)';
         }
+        else if (type === 'paste_text')
+        {
+        	return 'Text to paste on click';
+        }
         return '';
     }
 
@@ -1368,6 +1372,10 @@
         else if (type === 'counter')
         {
             return 'Display interactive counter.';
+        }
+        else if (type === 'paste_text')
+        {
+        	return 'Paste text';
         }
         return '';
     }
