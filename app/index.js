@@ -261,6 +261,7 @@
     t.value = String(count);
     const el = grid.querySelector(`[data-i="${idx}"] .val`);
     if (el) el.textContent = String(count);
+    console.log('[counter] updateCounter: cfg.id=', JSON.stringify(cfg.id), 'idx=', idx, 'count=', count);
     panelApi.saveTileValue(cfg.id, idx, String(count));
   }
 

@@ -613,11 +613,18 @@ app.whenReady().then(async () => {
   ipcMain.on('openConfig', (e) => { if (!isFrom(e, panelWin) && !isFrom(e, configWin)) return; openConfigWindow(); });
   ipcMain.on('introDone', (e) => { if (!isFrom(e, panelWin)) return; config.introShown = true; saveConfig(); });   // remember the intro was dismissed
   ipcMain.on('saveTileValue', (e, data) => {
-    if (!isFrom(e, panelWin) || !data || typeof data.gridId !== 'string' || !Number.isInteger(data.index) || typeof data.value !== 'string') return;
+    console.log('[counter] saveTileValue received:', JSON.stringify(data));
+    if (!isFrom(e, panelWin)) { console.log('[counter] REJECTED: not from panelWin'); return; }
+    if (!data || typeof data.gridId !== 'string' || !Number.isInteger(data.index) || typeof data.value !== 'string') {
+      console.log('[counter] REJECTED: bad shape. gridId-type=', typeof (data&&data.gridId), 'index-type=', typeof (data&&data.index), 'index-isInt=', Number.isInteger(data&&data.index), 'value-type=', typeof (data&&data.value));
+      return;
+    }
     const g = (config.grids || []).find(x => x.id === data.gridId);
-    if (!g || !Array.isArray(g.tiles) || !g.tiles[data.index]) return;
+    if (!g) { console.log('[counter] REJECTED: no grid with id', data.gridId, '— grids are:', config.grids.map(x=>x.id)); return; }
+    if (!Array.isArray(g.tiles) || !g.tiles[data.index]) { console.log('[counter] REJECTED: tile not found at index', data.index, 'in grid', data.gridId); return; }
     g.tiles[data.index].value = data.value;
     saveConfig();
+    console.log('[counter] SAVED: grid', data.gridId, 'tile', data.index, '=', data.value);
   });
   ipcMain.on('openExternal', (e, url) => { if (!isFrom(e, panelWin) && !isFrom(e, configWin)) return; openExternalUrl(url); });
   ipcMain.handle('getConfig', (e) => isFrom(e, configWin) ? config : null);
