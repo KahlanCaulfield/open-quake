@@ -19,6 +19,9 @@
   .gridrow:hover { background: #182230; }
   .gridrow.active { background: #16314f; border-color: #2b6fb0; }
   .gridrow .badge { font-size: 11px; color: #7CFFB2; }
+  .gridrow.dragover { border-color: #7CFFB2; box-shadow: 0 0 0 2px #7CFFB2; }
+  .gridrow .griphandle { cursor: grab; opacity: .4; user-select: none; flex: none; }
+  .gridrow:hover .griphandle { opacity: .75; }
   button { background: #1c2735; color: #dbe5f0; border: 1px solid #2a3a4e; border-radius: 7px; padding: 7px 12px; cursor: pointer; font-size: 13px; }
   button:hover { background: #243246; }
   button.primary { background: #1e6fd0; border-color: #2b8bff; }
@@ -156,6 +159,37 @@
   }
   function wireRotRow(g) { const el = document.getElementById('gRot'); if (el) el.onchange = e => { g.rotate = e.target.checked; markDirty(); }; }
 
+  // ---- per-page global shortcut ----
+  function shortcutRowHtml(g) {
+    return `<div class="row" style="margin-top:6px"><label style="width:auto">Shortcut</label>
+      <input id="gShortcut" readonly placeholder="click, then press keys" value="${esc(g.shortcut || '')}" style="width:200px">
+      <button id="gShortcutClear" style="margin-left:8px">Clear</button></div>
+      <p class="hint">Global hotkey that jumps the panel to this page from anywhere. Click the box and press a combo that includes a modifier (e.g. Ctrl+Alt+1). If another app already owns that combo, it just won't fire.</p>`;
+  }
+  function wireShortcutRow(g) {
+    const inp = document.getElementById('gShortcut'); if (!inp) return;
+    inp.onkeydown = e => { e.preventDefault(); const acc = accelFromEvent(e); if (acc) { g.shortcut = acc; inp.value = acc; renderGrids(); markDirty(); } };
+    const clr = document.getElementById('gShortcutClear');
+    if (clr) clr.onclick = () => { delete g.shortcut; inp.value = ''; renderGrids(); markDirty(); };
+  }
+  // Build an Electron accelerator string from a keydown. Requires a modifier (so we never bind a bare
+  // global key that would hijack normal typing system-wide).
+  function accelFromEvent(e) {
+    if (['Control', 'Alt', 'Shift', 'Meta'].includes(e.key)) return null;   // wait for the non-modifier key
+    const mods = [];
+    if (e.ctrlKey) mods.push('Ctrl');
+    if (e.altKey) mods.push('Alt');
+    if (e.shiftKey) mods.push('Shift');
+    if (e.metaKey) mods.push('Super');
+    if (!mods.length) return null;
+    const arrow = { ArrowUp: 'Up', ArrowDown: 'Down', ArrowLeft: 'Left', ArrowRight: 'Right' };
+    let key = arrow[e.key] || e.key;
+    if (key === ' ') key = 'Space';
+    else if (key.length === 1) key = key.toUpperCase();
+    else key = key.charAt(0).toUpperCase() + key.slice(1);
+    return mods.concat(key).join('+');
+  }
+
   // ---- save model (no live edit) ----
   function setState(text, cls) { const el = document.getElementById('state'); el.textContent = text; el.className = 'state' + (cls ? ' ' + cls : ''); }
   function markDirty() { dirty = true; setState('● unsaved changes', 'dirty'); document.getElementById('saveBtn').disabled = false; }
@@ -186,16 +220,36 @@
   }
 
   // ---- left grid list ----
+  let pageDragFrom = -1;
   function renderGrids() {
     const el = document.getElementById('gridlist'); el.innerHTML = '';
     config.grids.forEach((g, i) => {
       const d = document.createElement('div');
       d.className = 'gridrow' + (i === gi ? ' active' : '');
       const tag = g.kind === 'web' ? '🌐' : g.kind === 'app' ? '🧩' : '▦';
-      d.innerHTML = `<span>${tag} ${esc(g.name) || '(unnamed)'}</span>`;
+      const sc = g.shortcut ? `<span class="badge" title="Shortcut">${esc(g.shortcut)}</span>` : '<span></span>';
+      d.innerHTML = `<span style="display:flex;align-items:center;gap:8px;min-width:0;overflow:hidden">`
+        + `<span class="griphandle" title="Drag to reorder">☰</span>`
+        + `<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${tag} ${esc(g.name) || '(unnamed)'}</span></span>${sc}`;
       d.onclick = () => { view = 'pages'; gi = i; ti = -1; selEnd = -1; render(); };
+      d.draggable = true;
+      d.ondragstart = e => { pageDragFrom = i; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', String(i)); } catch (er) {} };
+      d.ondragover = e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; d.classList.add('dragover'); };
+      d.ondragleave = () => d.classList.remove('dragover');
+      d.ondrop = e => { e.preventDefault(); d.classList.remove('dragover'); movePage(pageDragFrom, i); pageDragFrom = -1; };
+      d.ondragend = () => d.classList.remove('dragover');
       el.appendChild(d);
     });
+  }
+  // Reorder pages by drag — keeps the same page selected (by id) and persists on save. Order drives the
+  // knob page-selector and the auto-rotation cycle; the live panel page is unaffected (tracked by id).
+  function movePage(from, to) {
+    if (from < 0 || to < 0 || from === to || from >= config.grids.length || to >= config.grids.length) return;
+    const activeId = (config.grids[gi] || {}).id;
+    const [moved] = config.grids.splice(from, 1);
+    config.grids.splice(to, 0, moved);
+    gi = config.grids.findIndex(x => x.id === activeId); if (gi < 0) gi = 0;
+    markDirty(); render();
   }
 
   // ---- grid meta ----
@@ -207,6 +261,7 @@
       <div class="row"><label>Columns</label><input id="gCols" type="number" min="1" max="12" value="${g.cols}" style="width:90px">
         <label style="width:auto;margin-left:10px">Rows</label><input id="gRows" type="number" min="1" max="6" value="${g.rows}" style="width:90px"></div>
       ${rotRowHtml(g)}
+      ${shortcutRowHtml(g)}
       <div class="row">
         <button class="danger" id="gDelete">Delete grid</button>
       </div>`;
@@ -214,7 +269,7 @@
     document.getElementById('gCols').onchange = e => { clearAllMerges(g); g.cols = Math.max(1, Math.min(12, +e.target.value || 1)); ensureTiles(g); ti = -1; selEnd = -1; render(); markDirty(); };
     document.getElementById('gRows').onchange = e => { clearAllMerges(g); g.rows = Math.max(1, Math.min(6, +e.target.value || 1)); ensureTiles(g); ti = -1; selEnd = -1; render(); markDirty(); };
     document.getElementById('gDelete').onclick = deleteCurrentPage;
-    wireRotRow(g);
+    wireRotRow(g); wireShortcutRow(g);
   }
 
   // ---- tile cells (with merge/span support) ----
@@ -466,6 +521,7 @@
         <label class="iconopt" style="width:auto; white-space:nowrap"><input type="checkbox" id="gUA" ${g.desktopUA ? 'checked' : ''}> Use a desktop browser identity</label></div>
       <p class="hint">Makes this page look like desktop Chrome instead of an embedded app. Turn on for sites that won't load or let you sign in inside the panel (e.g. claude.ai, chatgpt.com). The panel keeps its own login, separate from your PC browser — sign in once here and it sticks.</p>
       ${rotRowHtml(g)}
+      ${shortcutRowHtml(g)}
       <div class="row" style="margin-top:10px"><button class="danger" id="gDelete">Delete page</button></div>
       <p class="hint" id="authHint"></p>
       <p class="hint">Shown full-screen on the panel. Knob scrolls · tap clicks · double-click the knob returns to the page selector.</p>`;
@@ -475,7 +531,7 @@
     document.getElementById('gDelete').onclick = deleteCurrentPage;
     document.getElementById('gExt').onchange = e => { g.linksExternal = e.target.checked; markDirty(); };
     document.getElementById('gUA').onchange = e => { g.desktopUA = e.target.checked; markDirty(); };
-    wireRotRow(g);
+    wireRotRow(g); wireShortcutRow(g);
     renderAuthFields(g);
   }
   function setAuthType(g, type) {
@@ -525,12 +581,13 @@
       </select></div>
       <div id="appOpts"></div>
       ${rotRowHtml(g)}
+      ${shortcutRowHtml(g)}
       <div class="row" style="margin-top:10px"><button class="danger" id="gDelete">Delete page</button></div>
       <p class="hint">${def ? esc(def.name) + ' runs locally and shows full-screen on the panel.' : 'Pick an app, then set its options below.'}</p>`;
     document.getElementById('gName').oninput = e => { g.name = e.target.value; renderGrids(); markDirty(); };
     document.getElementById('gApp').onchange = e => { setApp(g, e.target.value); render(); markDirty(); };
     document.getElementById('gDelete').onclick = deleteCurrentPage;
-    wireRotRow(g);
+    wireRotRow(g); wireShortcutRow(g);
     renderAppOpts(g, def);
   }
   function setApp(g, id) {

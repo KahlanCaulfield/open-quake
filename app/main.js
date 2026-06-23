@@ -1,6 +1,6 @@
 'use strict';
 // DK-QUAKE launcher: multi-grid panel + PC config editor, on the open Aris68Connector driver.
-const { app, BrowserWindow, Tray, Menu, nativeImage, screen, powerSaveBlocker, ipcMain, shell, dialog, session, net } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, screen, powerSaveBlocker, ipcMain, shell, dialog, session, net, globalShortcut } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -27,6 +27,7 @@ let sysserver = null;                    // SystemView/Music local server (lazy-
 let serverPort = 0;                      // the local server's ephemeral port (for music-page routing)
 let config = loadConfig();
 let panelWin = null, configWin = null, tray = null;
+let dashSession = null, cookieFlushT = null;   // dashboard webview session + a debounced cookie-store flush
 const dev = new Aris68Connector({ hid: HID });
 function appSettings() { return Object.assign({}, DEFAULT_SETTINGS, config.settings || {}); }
 
@@ -521,6 +522,26 @@ function gotoGrid(id, persist) {
   if (!config.grids.some(g => g.id === id)) return;
   config.activeGridId = id; if (persist) saveConfig(); pushToPanel();
 }
+// Per-page global hotkeys: register each page's `shortcut` so pressing it (system-wide) jumps the panel
+// to that page. Re-applied on launch and after every editor save; a combo another app already owns just
+// fails to register (logged). Requires app to be ready.
+function applyShortcuts() {
+  try { globalShortcut.unregisterAll(); } catch (e) {}
+  for (const g of (config.grids || [])) {
+    if (!g.shortcut) continue;
+    try {
+      const ok = globalShortcut.register(g.shortcut, () => { gotoGrid(g.id, true); if (rotateRunning) scheduleRotation(); });
+      if (!ok) console.log('shortcut already in use, not registered:', g.shortcut, '->', g.id);
+    } catch (e) { console.log('shortcut register error:', g.shortcut, '-', e.message); }
+  }
+}
+// Force the dashboard webview's cookies to commit to disk. Chromium only lazily flushes (~30s / clean
+// shutdown), so a login made shortly before the app closes or is replaced by the next build can be lost
+// (Electron #8416) — which is why claude.ai logins didn't survive build swaps. Debounced after navigations.
+function flushDashCookies() {
+  clearTimeout(cookieFlushT);
+  cookieFlushT = setTimeout(() => { try { if (dashSession) dashSession.cookies.flushStore(); } catch (e) {} }, 2000);
+}
 function rotateTick() {
   const ids = rotationList().map(g => g.id);
   if (ids.length < 2) return;                                  // nothing to cycle through
@@ -605,7 +626,7 @@ app.whenReady().then(async () => {
   //  - 'header'  -> add custom header(s) to requests to the dashboard host (bearer / Cloudflare Access / …)
   //  - 'basic'   -> answer HTTP Basic Auth challenges with the configured user/pass
   // ('ha' token injection is done renderer-side; 'none' does nothing.)
-  const dashSession = session.fromPartition('persist:dashboards');
+  dashSession = session.fromPartition('persist:dashboards');
   dashSession.setPermissionRequestHandler((wc, permission, cb) => cb(true));   // local trusted panel: allow mic (push-to-talk) etc.
   dashSession.webRequest.onBeforeSendHeaders((details, cb) => {
     const g = activeGrid();
@@ -635,6 +656,7 @@ app.whenReady().then(async () => {
       if (g && g.kind === 'web' && g.linksExternal && /^https?:/i.test(url)) { try { shell.openExternal(url); } catch (er) {} }
       return { action: 'deny' };
     });
+    contents.on('did-navigate', flushDashCookies);                             // commit cookies (e.g. a fresh login) to disk after the page settles
   });
 
   ipcMain.on('launch', (e, a) => runAction(a));
@@ -653,7 +675,7 @@ app.whenReady().then(async () => {
     config = newCfg;
     if (config.grids.some(g => g.id === active)) config.activeGridId = active;
     else if (!config.grids.some(g => g.id === config.activeGridId)) config.activeGridId = (config.grids[0] || {}).id || null;
-    saveConfig(); pushToPanel(); applyKnobSettings(); refreshTray(); applyRotationSettings(wasRot);
+    saveConfig(); pushToPanel(); applyKnobSettings(); refreshTray(); applyRotationSettings(wasRot); applyShortcuts();
   });
   ipcMain.handle('pickProgram', async () => {
     const r = await dialog.showOpenDialog(configWin, { properties: ['openFile'], filters: [{ name: 'Programs', extensions: ['exe', 'lnk', 'bat', 'cmd', 'com'] }, { name: 'All Files', extensions: ['*'] }] });
@@ -691,6 +713,7 @@ app.whenReady().then(async () => {
 
   placePanel();
   if (rotationCfg().enabled) setRotation(true);          // auto-start cycling on launch when enabled
+  applyShortcuts();                                       // register per-page global hotkeys
   const ls = appSettings();
   if (firstRun || ls.launchMode === 'editor') openConfigWindow();
   else if (ls.launchMode === 'minimized') { openConfigWindow(); if (configWin && !configWin.isDestroyed()) configWin.minimize(); }
@@ -733,4 +756,4 @@ app.whenReady().then(async () => {
 });
 }
 app.on('window-all-closed', () => {});
-app.on('before-quit', () => { try { if (sysserver) sysserver.stop(); } catch (e) {} });   // stop metrics timers + close the server
+app.on('before-quit', () => { try { if (sysserver) sysserver.stop(); } catch (e) {} try { globalShortcut.unregisterAll(); } catch (e) {} try { if (dashSession) dashSession.cookies.flushStore(); } catch (e) {} });   // stop metrics timers + close the server + drop hotkeys + commit cookies
