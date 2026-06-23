@@ -27,9 +27,9 @@
     "electron"
   ],
   "dependencies": {
+    "@nut-tree-fork/nut-js": "^4.2.6",
     "node-hid": "^3.3.0",
     "nodemon": "^3.1.14",
-    "robotjs": "^0.6.0",
     "systeminformation": "^5.31.7"
   },
   "devDependencies": {

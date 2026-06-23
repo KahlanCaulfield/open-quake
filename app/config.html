@@ -132,7 +132,7 @@
   }
   const appIconCache = {};   // app value -> dataURL | false (failed) | null (in-flight)
   const urlIconPreview = {}; // iconCache path -> dataURL of a just-fetched URL icon (editor preview only; dodges file:// browser-cache staleness on Refresh)
-  const TYPES = [['', 'Empty'], ['app', 'App / Program'], ['url', 'Website (URL)'], ['page', 'Go to open-quake page'], ['cmd', 'Shell command'], ['open', 'Open file/folder'], ['system', 'System (lock/config)'], ['counter', 'Counter']];
+  const TYPES = [['', 'Empty'], ['app', 'App / Program'], ['url', 'Website (URL)'], ['page', 'Go to open-quake page'], ['cmd', 'Shell command'], ['open', 'Open file/folder'], ['system', 'System (lock/config)'], ['counter', 'Counter'], ['paste_text', 'Paste text']];
   const uid = () => 'g' + Math.random().toString(36).slice(2, 8);
   const curGrid = () => config.grids[gi];
   const esc = s => (s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -441,6 +441,7 @@
     else if (type === 'cmd') return 'start ms-settings:';
     else if (type === 'system') return 'lock  |  config  |  mic | monitor';
     else if (type === 'counter') return 'Start value (ex: 0)';
+    else if (type === 'paste_text') return 'Text to paste on click';
     return '';
   }
   function pageSelectHtml(t) {
@@ -455,6 +456,7 @@
     else if (type === 'cmd') return 'Runs a shell command (advanced).';
     else if (type === 'system') return 'lock = lock screen · config = open this editor · mic = toggle the device mic. · monitor = hide the panel and use the device as a normal monitor (press the knob to return).';
     else if (type === 'counter') return 'Display interactive counter.';
+    else if (type === 'paste_text') return 'Paste text';
     return '';
   }
 

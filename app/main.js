@@ -1,6 +1,6 @@
 'use strict';
 // DK-QUAKE launcher: multi-grid panel + PC config editor, on the open Aris68Connector driver.
-const { app, BrowserWindow, Tray, Menu, nativeImage, screen, powerSaveBlocker, ipcMain, shell, dialog, session, net } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, screen, powerSaveBlocker, ipcMain, shell, dialog, session, net, clipboard } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -8,7 +8,7 @@ const { exec } = require('child_process');
 const { pathToFileURL } = require('url');
 const HID = require('node-hid');
 const Aris68Connector = require(path.join(__dirname, '..', 'src', 'Aris68Connector'));
-let robot = null; try { robot = require('robotjs'); } catch (e) { console.log('robotjs unavailable (knob-volume off):', e.message); }
+const { keyboard, Key, mouse, Button, Point } = require("@nut-tree-fork/nut-js");
 
 const USER_DIR = app.getPath('userData');
 const CONFIG_PATH = path.join(USER_DIR, 'config.json');                  // writable — works inside a packaged app too
@@ -313,18 +313,38 @@ function runAction(a) {
         else if (a.value === 'mic') toggleMic();
         else if (a.value === 'monitor') enterMonitorMode();   // hand the device screen to Windows; press the knob to return
         break;
+      case 'paste_text':
+        execPast(a.value);
+        break;
     }
   } catch (e) { console.log('action error:', e.message); }
 }
 
-// Media transport for the Music page — global media keys via robotjs (instant, in-process; Windows
-// routes them to the active SMTC session, the same one nowplaying.js reports).
-function mediaKey(cmd) {
-  if (!robot) return false;
-  const map = { playpause: 'audio_play', next: 'audio_next', prev: 'audio_prev', stop: 'audio_stop' };
-  const k = map[cmd];
-  if (!k) return false;
-  try { robot.keyTap(k); return true; } catch (e) { return false; }
+async function execPast(value) {
+  clipboard.writeText(value);
+  await keyboard.pressKey(Key.LeftControl, Key.V);
+  await keyboard.releaseKey(Key.LeftControl, Key.V);
+}
+
+async function mediaKey(cmd) {
+  const map = {
+    playpause: Key.AudioPlay,
+    next: Key.AudioNext,
+    prev: Key.AudioPrev,
+    stop: Key.AudioStop
+  };
+
+  const key = map[cmd];
+  if (!key) return false;
+
+  try {
+    await keyboard.pressKey(key);
+    await keyboard.releaseKey(key);
+    return true;
+  } catch (e) {
+    console.error("Media key press failed:", e);
+    return false;
+  }
 }
 
 // Find the DK-QUAKE display. Match by its reported LABEL first — that survives scale/rotation/resolution
@@ -413,27 +433,47 @@ function toggleMonitorMode() { monitorMode ? exitMonitorMode('tray') : enterMoni
 
 // Monitor-mode touch -> Windows cursor: tap = left-click, finger-drag = move with the button held, lift =
 // release. Maps the panel's bottom-left-origin coords (x:0..1920, y:0..480) into the device monitor's screen
-// position and drives the OS cursor via robotjs (same lib as knob-volume). A short idle timer releases the
+// position and drives the OS cursor via nutjs (same lib as knob-volume). A short idle timer releases the
 // button if the device never sends an explicit lift frame (mirrors the dashboard webTouch logic).
-let touchDown = false, touchIdle = null;
-function injectTouch(p) {
-  if (!robot) return;
-  const d = deviceDisplay(); if (!d) return;
+let touchDown = false;
+let touchIdle = null;
+async function injectTouch(p) {
+  const d = deviceDisplay();
+  if (!d) return;
   const b = d.bounds;
+
+  // Coordinate mapping
   const x = Math.round(b.x + Math.max(0, Math.min(1920, p.x)));
-  const y = Math.round(b.y + Math.max(0, Math.min(480, 480 - p.y)));   // device origin is bottom-left -> flip Y for the top-left screen
+  const y = Math.round(b.y + Math.max(0, Math.min(480, 480 - p.y)));
+
   clearTimeout(touchIdle);
+
   try {
     if (p.action === 1) {
-      robot.moveMouse(x, y);
-      if (!touchDown) { touchDown = true; robot.mouseToggle('down', 'left'); }
+      // 1. Move to the new coordinate
+      await mouse.setPosition(new Point(x, y));
+
+      // 2. If not down yet, press the button
+      if (!touchDown) {
+        touchDown = true;
+        await mouse.pressButton(Button.LEFT);
+      }
+
+      // 3. Reset idle timer
       touchIdle = setTimeout(releaseTouch, 140);
-    } else releaseTouch();
-  } catch (e) {}
+    } else {
+      await releaseTouch();
+    }
+  } catch (e) {
+    console.error("Touch injection error:", e);
+  }
 }
-function releaseTouch() {
-  clearTimeout(touchIdle);
-  if (touchDown) { touchDown = false; try { robot.mouseToggle('up', 'left'); } catch (e) {} }
+
+async function releaseTouch() {
+  if (touchDown) {
+    await mouse.releaseButton(Button.LEFT);
+    touchDown = false;
+  }
 }
 
 // Knob behavior while in monitor mode (configured on the editor's Monitor tab). Turn -> volume or scroll;
@@ -445,20 +485,39 @@ function monitorCfg() {
     knobTap: ['leftclick', 'enter', 'rightclick', 'mute'].includes(m.knobTap) ? m.knobTap : 'enter',   // default: enter
   };
 }
-function monitorKnob(k) {
-  if (!robot) return;
+
+async function monitorKnob(k) {
   const m = monitorCfg();
+
   try {
     if (k.type === 'rotate') {
-      if (m.knobTurn === 'scroll') robot.scrollMouse(0, k.dir > 0 ? -120 : 120);   // 120 = one wheel notch per detent (needs the patched robotjs — see patches/)
-      else robot.keyTap(k.dir > 0 ? 'audio_vol_up' : 'audio_vol_down');
-    } else if (k.type === 'press' && k.index === 1) {                          // single-tap action
-      if (m.knobTap === 'leftclick') robot.mouseClick('left');
-      else if (m.knobTap === 'enter') robot.keyTap('enter');
-      else if (m.knobTap === 'rightclick') robot.mouseClick('right');
-      else robot.keyTap('audio_mute');
+      if (m.knobTurn === 'scroll') {
+        // nut.js handles scroll direction intuitively
+        // Positive/Negative values determine the scroll amount
+        const scrollAmount = 120;
+        await mouse.scrollDown(k.dir > 0 ? scrollAmount : -scrollAmount);
+      } else {
+        // Using keyboard to tap media keys
+        await keyboard.pressKey(k.dir > 0 ? Key.AudioVolUp : Key.AudioVolDown);
+        await keyboard.releaseKey(k.dir > 0 ? Key.AudioVolUp : Key.AudioVolDown);
+      }
+    } else if (k.type === 'press' && k.index === 1) {
+      // Mapping tap actions to mouse or keyboard events
+      if (m.knobTap === 'leftclick') {
+        await mouse.click(Button.LEFT);
+      } else if (m.knobTap === 'enter') {
+        await keyboard.pressKey(Key.Enter);
+        await keyboard.releaseKey(Key.Enter);
+      } else if (m.knobTap === 'rightclick') {
+        await mouse.click(Button.RIGHT);
+      } else {
+        await keyboard.pressKey(Key.AudioMute);
+        await keyboard.releaseKey(Key.AudioMute);
+      }
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error("Knob action failed:", e);
+  }
 }
 
 function openConfigWindow() {
@@ -624,7 +683,21 @@ app.whenReady().then(async () => {
   });
 
   ipcMain.on('launch', (e, a) => runAction(a));
-  ipcMain.on('volume', (e, v) => { if (robot) { try { if (v === 'mute') robot.keyTap('audio_mute'); else robot.keyTap(v > 0 ? 'audio_vol_up' : 'audio_vol_down'); } catch (er) {} } });
+  ipcMain.on('volume', async (e, v) => {
+    try {
+      if (v === 'mute') {
+        await keyboard.pressKey(Key.AudioMute);
+        await keyboard.releaseKey(Key.AudioMute);
+      } else {
+        // Use the appropriate key based on volume delta
+        const key = v > 0 ? Key.AudioVolUp : Key.AudioVolDown;
+        await keyboard.pressKey(key);
+        await keyboard.releaseKey(key);
+      }
+    } catch (er) {
+      console.error("Failed to process volume command:", er);
+    }
+  });
   ipcMain.on('switchGrid', (e, id) => { gotoGrid(id, true); if (rotateRunning) scheduleRotation(); });   // a manual pick resets the rotation timer
   ipcMain.on('toggleRotation', () => toggleRotation());
   ipcMain.on('openConfig', () => openConfigWindow());
