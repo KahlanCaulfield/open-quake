@@ -28,3 +28,11 @@ in the editor, then set the page's name, URL, and (if the site needs it) auth �
 the auth options above. Use **Delete page** to remove one.
 
 ![Adding and managing a dashboard page in the editor](shots/editor-dashboard.png)
+
+## Button grid
+
+A dashboard can also carry a strip of native macro tiles beside the web view. In the
+dashboard editor, tick **Add a button grid beside the dashboard** to reveal a
+**Buttons** tab: pick the **side** (left or right) and the **size** (2 rows tall,
+1–3 columns wide), then edit the tiles like any grid. The web view fills the rest of
+the screen — taps on the strip fire the tiles, taps on the web view go to the page.

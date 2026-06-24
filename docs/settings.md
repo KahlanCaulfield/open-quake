@@ -2,7 +2,8 @@
 
 The editor's **⚙ Settings** page (top-right) holds the app- and device-level options,
 split into a **Software** tab (on launch, screen rotation), a **Hardware** tab (knob
-ring, microphone), and a **Theme** tab (light/dark + accent color):
+ring, microphone), a **Theme** tab (light/dark + accent color), and an **Apps** tab
+(which apps appear in the picker):
 
 - **On launch** — open the editor window, start **minimized** to the taskbar, or run
   **tray-only** (panel + system tray, no window). open-quake always sits in the system
@@ -33,6 +34,9 @@ ring, microphone), and a **Theme** tab (light/dark + accent color):
     just itself, in that page's **Advanced settings** in the editor (e.g. one light page
     while the rest stays dark). Web dashboards follow the global light/dark only.
   - Theme changes apply when you **Save**.
+- **Apps** — show or hide each bundled app in the editor's **+ App** picker (it only
+  affects the picker, not pages already built on an app). A **show developer apps**
+  toggle reveals extra developer-built apps, hidden by default.
 
 The ring is driven over the device's QMK VIA lighting channel; settings are stored in
 `%APPDATA%\open-quake` and re-applied on connect.
