@@ -3022,5 +3022,27 @@
         }
       }
     ]
+  },
+  {
+    "id": "haschedule",
+    "name": "HA Schedule",
+    "file": "haschedule.html",
+    "served": true,
+    "dev": true,
+    "options": [
+      {
+        "key": "interval",
+        "label": "Refresh",
+        "type": "select",
+        "default": "600",
+        "choices": [
+          ["60", "1 min"],
+          ["300", "5 min"],
+          ["600", "10 min"],
+          ["1800", "30 min"],
+          ["3600", "1 hour"]
+        ]
+      }
+    ]
   }
 ]

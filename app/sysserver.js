@@ -18,6 +18,7 @@ const fs = require('fs');
 const path = require('path');
 const metrics = require('./sysmetrics');
 const nowplaying = require('./nowplaying');
+const haschedule = require('./haschedule');   // HA Schedule dev app (main.js drives its poll start/stop)
 
 const FALLBACK = '<!doctype html><meta charset="utf-8">'
   + '<body style="margin:0;background:#05080d;color:#9fb3c8;font:20px Segoe UI, sans-serif">page asset missing.</body>';
@@ -47,10 +48,11 @@ const STATIC_FILES = {
   '/chatview-config.js': 'application/javascript; charset=utf-8',
   '/chatview-main.js': 'application/javascript; charset=utf-8',
   '/chatview-ptt.js': 'application/javascript; charset=utf-8',
+  '/haschedule-ui.js': 'application/javascript; charset=utf-8',
 };
 
 let server = null, onMedia = null, onLaunch = null, getMusicTiles = null, getAppConfig = null;
-let sysHtml = FALLBACK, musicHtml = FALLBACK, chatHtml = FALLBACK;
+let sysHtml = FALLBACK, musicHtml = FALLBACK, chatHtml = FALLBACK, hascheduleHtml = FALLBACK;
 const staticAssets = {};   // request path -> { body, type }; populated at start()
 
 function headers(type) { return { 'Content-Type': type, 'Cache-Control': 'no-store', 'Content-Security-Policy': LOCAL_APP_CSP }; }
@@ -88,6 +90,7 @@ async function handler(req, res) {
   if (url === '/' || url === '/index.html') return html(res, sysHtml);
   if (url === '/music') return html(res, musicHtml);
   if (url === '/chat') return html(res, chatHtml);
+  if (url === '/haschedule') return html(res, hascheduleHtml);
   const asset = staticAssets[url];
   if (asset) { res.writeHead(200, headers(asset.type)); return res.end(asset.body); }
   // Below here: side effects (/launch, /media), live data (/metrics, /nowplaying, /musictiles), or
@@ -101,6 +104,7 @@ async function handler(req, res) {
   }
   if (url === '/metrics') return json(res, metrics.getSnapshot());
   if (url === '/nowplaying') return json(res, nowplaying.getSnapshot());
+  if (url === '/haschedule-data') return json(res, haschedule.getSnapshot());
   if (url === '/musictiles') {
     let t = { cols: 2, rows: 2, tiles: [] };
     if (getMusicTiles) { try { t = await getMusicTiles(); } catch (e) {} }
@@ -136,6 +140,7 @@ function start(opts) {
     try { sysHtml = fs.readFileSync(path.join(__dirname, 'sysview.html'), 'utf8'); } catch (e) {}
     try { musicHtml = fs.readFileSync(path.join(__dirname, 'musicview.html'), 'utf8'); } catch (e) {}
     try { chatHtml = fs.readFileSync(path.join(__dirname, 'chatview.html'), 'utf8'); } catch (e) {}
+    try { hascheduleHtml = fs.readFileSync(path.join(__dirname, 'haschedule.html'), 'utf8'); } catch (e) {}
     for (const [route, type] of Object.entries(STATIC_FILES)) {
       try { staticAssets[route] = { body: fs.readFileSync(path.join(__dirname, route.slice(1)), 'utf8'), type }; } catch (e) {}
     }

@@ -128,9 +128,11 @@
   function blankTile() { return { label: '', icon: '', type: '', value: '', iconType: 'emoji', iconImage: '', iconUrl: '', iconCache: '' }; }
   function ensureTiles(g) { const need = g.cols * g.rows; while (g.tiles.length < need) g.tiles.push(blankTile()); g.tiles.length = need; }
   // App-picker visibility (Settings -> Apps). Regular apps default SHOWN (listed in hiddenApps when off);
-  // developer apps (apps.json "dev": true) default HIDDEN (listed in shownDevApps when on) so releases ship them off.
+  // developer apps (apps.json "dev": true) default HIDDEN (listed in shownDevApps when ticked) so releases hide them.
+  // devEnabled() is just a UI toggle that reveals the developer list in the editor — it doesn't affect the picker.
   function appHidden(id) { return (((config.settings || {}).hiddenApps) || []).includes(id); }
   function devShown(id) { return (((config.settings || {}).shownDevApps) || []).includes(id); }
+  function devEnabled() { return !!((config.settings || {}).devApps); }
   function appVisible(a) { return a && a.dev ? devShown(a.id) : !appHidden(a.id); }
 
   async function ensureAppIcon(value) {
@@ -732,9 +734,10 @@
       <p class="sectitle">Apps</p>
       <p class="hint">Untick an app to hide it from the <b>App</b> dropdown when building a page. This only changes what's offered — pages already using a hidden app keep working.</p>
       ${regularApps.length ? regularApps.map(a => appRow(a, !appHidden(a.id))).join('') : '<p class="hint">No apps found.</p>'}
-      ${devApps.length ? `<p class="sectitle" style="margin-top:22px">Developer</p>
-        <p class="hint">Personal apps, hidden by default. Tick one to show it in the App dropdown.</p>
-        ${devApps.map(a => appRow(a, devShown(a.id))).join('')}` : ''}`;
+      ${devApps.length ? `
+        <label class="iconopt" style="width:auto; gap:9px; margin:22px 0 0"><input type="checkbox" id="devMaster" ${devEnabled() ? 'checked' : ''}> show developer apps</label>
+        <p class="hint">Specified in apps.json.</p>
+        ${devEnabled() ? devApps.map(a => appRow(a, devShown(a.id))).join('') : ''}` : ''}`;
 
     el.innerHTML = `
       <p class="sectitle">Settings</p>
@@ -771,6 +774,8 @@
         }
         markDirty();
       });
+      const dm = document.getElementById('devMaster');   // master: just reveals the developer-app list in this tab
+      if (dm) dm.onchange = e => { if (!config.settings) config.settings = {}; config.settings.devApps = e.target.checked; markDirty(); renderSettings(); };
     }
 
     if (tab === 'software') {

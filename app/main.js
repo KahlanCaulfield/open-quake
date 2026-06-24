@@ -13,6 +13,7 @@ const actionRunner = require('./actionRunner');
 const { createMediaKeys } = require('./mediaKeys');
 const { createSecretStore } = require('./secretStore');
 const nowplaying = require('./nowplaying');   // same singleton sysserver polls — read its snapshot to target transport
+const haschedule = require('./haschedule');   // HA Schedule dev app — fed HA creds from .env, polled while shown
 
 const USER_DIR = app.getPath('userData');
 const CONFIG_PATH = path.join(USER_DIR, 'config.json');                  // writable — works inside a packaged app too
@@ -262,6 +263,24 @@ function syncPollers(g) {
     : (g && g.kind === 'app' && g.app === 'music') ? 'music'
     : null;
   try { sysserver.setActivePage(which); } catch (e) {}
+  // HA Schedule dev app: poll HA only while it's shown, at the page's chosen interval (default 10 min).
+  try {
+    if (!monitorMode && g && g.kind === 'app' && g.app === 'haschedule') haschedule.start((parseInt((g.options || {}).interval, 10) || 600) * 1000);
+    else haschedule.stop();
+  } catch (e) {}
+}
+// Minimal .env reader (KEY=VALUE lines) for dev-app secrets like the HA token — kept out of config/git.
+function loadEnv() {
+  const out = {};
+  for (const p of [path.join(process.cwd(), '.env'), path.join(__dirname, '..', '.env')]) {
+    try {
+      fs.readFileSync(p, 'utf8').split(/\r?\n/).forEach(line => {
+        const m = /^\s*([A-Za-z0-9_]+)\s*=\s*(.*?)\s*$/.exec(line);
+        if (m && !(m[1] in out)) out[m[1]] = m[2].replace(/^["']|["']$/g, '');
+      });
+    } catch (e) {}
+  }
+  return out;
 }
 async function pushToPanel() {
   if (panelWin && !panelWin.isDestroyed()) {
@@ -734,7 +753,8 @@ app.whenReady().then(async () => {
     sysserver = require('./sysserver');
     serverPort = await sysserver.start({ onMedia: mediaKey, onLaunch: onMusicLaunch, getMusicTiles, getAppConfig: activeServedAppConfig });
     ensureSystemViewPage(serverPort); ensureMusicPage();
-    console.log('SystemView + Music on http://127.0.0.1:' + serverPort);
+    const env = loadEnv(); haschedule.configure({ url: env.HA_URL, token: env.HA_TOKEN });   // HA Schedule dev app creds
+    console.log('SystemView + Music on http://127.0.0.1:' + serverPort + (env.HA_URL ? ' · HA Schedule -> ' + env.HA_URL : ''));
   } catch (e) { console.log('local panel services failed to start:', e.message); }
   sweepIconCache();   // clean up orphaned URL-icon cache files left by prior sessions
 
