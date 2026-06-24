@@ -18,12 +18,12 @@
 
   /* ---- left column: CPU + GPU cards (temp + load gauges each) ---- */
   .col { display: flex; flex-direction: column; gap: 10px; flex: 1.15; }
-  .devcard { flex: 1; }
+  .devcard { flex: 1; min-height: 0; }   /* let the two stacked cards shrink to fit the column (their gauges otherwise force overflow past the bottom edge) */
   .devhead { display: flex; align-items: baseline; gap: 10px; flex: none; }
   .devhead .name { font-size: 22px; font-weight: 800; }
   .devhead .sub { font-size: 12px; color: #7e93ab; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .gauges { flex: 1; display: flex; align-items: center; justify-content: space-around; min-height: 0; }
-  .gauge { position: relative; flex: 1; max-width: 50%; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; }
+  .gauge { position: relative; flex: 1; min-height: 0; max-width: 50%; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; }
   .gauge svg { width: 100%; height: 100%; transform: rotate(-90deg); }
   .gtrack { fill: none; stroke: #16202e; stroke-width: 10; }
   .garc { fill: none; stroke-width: 10; stroke-linecap: round; transition: stroke-dashoffset .5s ease; }
