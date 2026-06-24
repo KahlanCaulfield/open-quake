@@ -31,6 +31,7 @@ let sysserver = null;                    // SystemView/Music local server (lazy-
 let serverPort = 0;                      // the local server's ephemeral port (for music-page routing)
 let config = loadConfig();
 let panelWin = null, configWin = null, tray = null;
+let dashSession = null, cookieFlushT = null;   // dashboard webview session + a debounced cookie-store flush
 const dev = new Aris68Connector({ hid: HID });
 function appSettings() { return Object.assign({}, DEFAULT_SETTINGS, config.settings || {}); }
 // IPC hardening: only accept a channel from the window that legitimately owns it. The panel hosts a
@@ -487,6 +488,13 @@ function gotoGrid(id, persist) {
   if (!config.grids.some(g => g.id === id)) return;
   config.activeGridId = id; if (persist) saveConfig(); pushToPanel();
 }
+// Force the dashboard webview's cookies to commit to disk. Chromium only lazily flushes (~30s / clean
+// shutdown), so a login made shortly before the app closes or is replaced by the next build can be lost
+// (Electron #8416) — which is why claude.ai logins didn't survive build swaps. Debounced after navigations.
+function flushDashCookies() {
+  clearTimeout(cookieFlushT);
+  cookieFlushT = setTimeout(() => { try { if (dashSession) dashSession.cookies.flushStore(); } catch (e) {} }, 2000);
+}
 function rotateTick() {
   const ids = rotationList().map(g => g.id);
   if (ids.length < 2) return;                                  // nothing to cycle through
@@ -586,7 +594,7 @@ app.whenReady().then(async () => {
   //  - 'header'  -> add custom header(s) to requests to the dashboard host (bearer / Cloudflare Access / …)
   //  - 'basic'   -> answer HTTP Basic Auth challenges with the configured user/pass
   // ('ha' token injection is done renderer-side; 'none' does nothing.)
-  const dashSession = session.fromPartition('persist:dashboards');
+  dashSession = session.fromPartition('persist:dashboards');
   dashSession.setPermissionRequestHandler(handleDashboardPermissionRequest);
   dashSession.webRequest.onBeforeSendHeaders((details, cb) => {
     const g = activeGrid();
@@ -604,6 +612,10 @@ app.whenReady().then(async () => {
       event.preventDefault();
       callback(g.auth.user || '', g.auth.pass || '');
     }
+  });
+  app.on('web-contents-created', (e, contents) => {
+    if (contents.getType() !== 'webview') return;
+    contents.on('did-navigate', flushDashCookies);                             // commit cookies (e.g. a fresh login) to disk after the page settles
   });
 
   ipcMain.on('launch', (e, a) => { if (!isFrom(e, panelWin)) return; runAction(a); });
@@ -695,4 +707,5 @@ app.on('window-all-closed', () => {});
 app.on('before-quit', () => {
   try { dev.stop(); } catch (e) {}                       // close HID devices + clear keep-alive/rescan timers — an open node-hid handle blocks process exit (Cmd+Q would hang -> force-quit)
   try { if (sysserver) sysserver.stop(); } catch (e) {}  // stop metrics timers + close the local server
+  try { if (dashSession) dashSession.cookies.flushStore(); } catch (e) {}   // commit a fresh webview login to disk before exit
 });
