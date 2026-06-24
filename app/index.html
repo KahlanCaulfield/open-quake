@@ -4,61 +4,69 @@
 <meta charset="utf-8" />
 <meta http-equiv="Content-Security-Policy" content="default-src 'self' http: https: file: data: blob:; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: file: http: https:; font-src 'self' data:; connect-src 'self'; media-src 'self' blob: data:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none';">
 <style>
+  :root { --bg1:#0e1b2e; --bg2:#05080d; --tile1:#18293d; --tile2:#0c141f; --tile-bd:#243a55;
+    --tile-fg:#cfe0f2; --tile-lb:#9fb3c8; --empty-bg:#0a111a; --empty-bd:#1b2838;
+    --overlay:rgba(3,6,10,.93); --txt:#e8eef6; --sel-dim:#5f7790; --sel-on:#ffffff; --val:#ffffff;
+    --accent:#7CFFB2; }
+  body.light { --bg1:#eef3f8; --bg2:#dde7f0; --tile1:#ffffff; --tile2:#eef3f8; --tile-bd:#c4d2e0;
+    --tile-fg:#1c2a39; --tile-lb:#5a6c7e; --empty-bg:#e7eef5; --empty-bd:#cdd9e5;
+    --overlay:rgba(244,248,251,.94); --txt:#1c2a39; --sel-dim:#8499ac; --sel-on:#102030; --val:#102030; }
   html, body { margin: 0; height: 100%; overflow: hidden; background: #000; }
   #stage { position: absolute; top: 0; left: 0; width: 1920px; height: 480px;
     transform-origin: 0 0; transform: translate(480px, 0) rotate(90deg);
-    background: radial-gradient(140% 200% at 0% 0%, #0e1b2e 0%, #05080d 70%);
+    background: radial-gradient(140% 200% at 0% 0%, var(--bg1) 0%, var(--bg2) 70%);
     font-family: 'Segoe UI', system-ui, sans-serif; }
   #grid { display: grid; width: 1920px; height: 480px; gap: 10px; padding: 12px; box-sizing: border-box; }
-  #web { position: absolute; top: 0; left: 0; width: 1920px; height: 480px; border: 0; background: #05080d; display: none; }
+  #web { position: absolute; top: 0; left: 0; width: 1920px; height: 480px; border: 0; background: var(--bg2); display: none; }
   #web.show { display: flex; }
   .tile { display: flex; flex-direction: column; align-items: center; justify-content: center;
-    border-radius: 18px; background: linear-gradient(160deg, #18293d, #0c141f);
-    border: 1px solid #243a55; color: #cfe0f2; user-select: none;
+    border-radius: 18px; background: linear-gradient(160deg, var(--tile1), var(--tile2));
+    border: 1px solid var(--tile-bd); color: var(--tile-fg); user-select: none;
     transition: transform .06s, background .06s, border-color .06s; }
-  .tile.empty { background: #0a111a; border: 1px dashed #1b2838; }
+  .tile.empty { background: var(--empty-bg); border: 1px dashed var(--empty-bd); }
   .tile .ic { font-size: 60px; line-height: 1; }
   .tile .ic-img { width: 64px; height: 64px; object-fit: contain; }
-  .tile .lb { font-size: 20px; margin-top: 8px; color: #9fb3c8; }
+  .tile .lb { font-size: 20px; margin-top: 8px; color: var(--tile-lb); }
   .tile.span .ic { font-size: 104px; }
   .tile.span .ic-img { width: 104px; height: 104px; }
   .tile.span .lb { font-size: 26px; }
-  .tile.hit { background: linear-gradient(160deg, #2b8bff, #0a5bd0); border-color: #7CFFB2;
-    color: #fff; transform: scale(.95); box-shadow: 0 0 28px rgba(43,139,255,.55); }
+  .tile.hit { background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 26%, var(--tile1)), var(--tile2));
+    border-color: var(--accent); transform: scale(.95);
+    box-shadow: 0 0 26px color-mix(in srgb, var(--accent) 50%, transparent); }
   #vol { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); font-size: 44px;
-    color: #7CFFB2; background: rgba(5,10,16,.85); padding: 18px 30px; border-radius: 16px;
+    color: var(--accent); background: var(--overlay); padding: 18px 30px; border-radius: 16px;
     opacity: 0; transition: opacity .12s; pointer-events: none; }
   /* dial selector */
-  #selector { position: absolute; inset: 0; background: rgba(3,6,10,.92); display: none;
-    flex-direction: column; align-items: center; justify-content: center; color: #e8eef6; }
+  #selector { position: absolute; inset: 0; background: var(--overlay); display: none;
+    flex-direction: column; align-items: center; justify-content: center; color: var(--txt); }
   #selector.open { display: flex; }
-  .seltitle { font-size: 30px; color: #7CFFB2; letter-spacing: 2px; margin-bottom: 8px; }
+  .seltitle { font-size: 30px; color: var(--accent); letter-spacing: 2px; margin-bottom: 8px; }
   .selwheel { height: 300px; width: 760px; overflow: hidden; position: relative;
     -webkit-mask-image: linear-gradient(#0000, #000 32%, #000 68%, #0000); }
   #selitems { position: absolute; left: 0; right: 0; top: 50%; transition: transform .14s ease-out; }
   .selitem { height: 76px; display: flex; align-items: center; justify-content: center;
-    font-size: 34px; color: #5f7790; transform: translateY(-50%); }
-  .selitem.sel { font-size: 52px; font-weight: 800; color: #fff; text-shadow: 0 0 22px rgba(124,255,178,.6); }
-  .selhint { margin-top: 10px; font-size: 20px; color: #6b809a; }
+    font-size: 34px; color: var(--sel-dim); transform: translateY(-50%); }
+  .selitem.sel { font-size: 52px; font-weight: 800; color: var(--sel-on); text-shadow: 0 0 22px color-mix(in srgb, var(--accent) 60%, transparent); }
+  .selhint { margin-top: 10px; font-size: 20px; color: var(--sel-dim); }
   /* first-run intro overlay */
-  #intro { position: absolute; inset: 0; background: rgba(3,6,10,.96); display: none; z-index: 20;
-    flex-direction: column; align-items: center; justify-content: center; color: #e8eef6; }
+  #intro { position: absolute; inset: 0; background: var(--overlay); display: none; z-index: 20;
+    flex-direction: column; align-items: center; justify-content: center; color: var(--txt); }
   #intro.open { display: flex; }
   .introicon { font-size: 84px; line-height: 1; margin-bottom: 4px; }
-  .introtitle { font-size: 44px; font-weight: 800; color: #fff; text-align: center; padding: 0 40px;
-    text-shadow: 0 0 22px rgba(124,255,178,.5); }
-  .introsub { font-size: 23px; color: #9fb3c8; margin-top: 12px; text-align: center; padding: 0 60px; }
-  .introok { margin-top: 24px; font-size: 30px; font-weight: 700; color: #04121f; background: #7CFFB2;
-    border: none; border-radius: 14px; padding: 13px 64px; cursor: pointer; box-shadow: 0 0 28px rgba(124,255,178,.45); }
+  .introtitle { font-size: 44px; font-weight: 800; color: var(--sel-on); text-align: center; padding: 0 40px;
+    text-shadow: 0 0 22px color-mix(in srgb, var(--accent) 50%, transparent); }
+  .introsub { font-size: 23px; color: var(--tile-lb); margin-top: 12px; text-align: center; padding: 0 60px; }
+  .introok { margin-top: 24px; font-size: 30px; font-weight: 700; color: #04121f; background: var(--accent);
+    border: none; border-radius: 14px; padding: 13px 64px; cursor: pointer; box-shadow: 0 0 28px color-mix(in srgb, var(--accent) 45%, transparent); }
   .introok:active { transform: scale(.96); }
 
   .tile-counter { display: flex; width: 100%; height: 100%; align-items: stretch; justify-content: space-between; overflow: hidden; border-radius: 18px; }
   .counter-center { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; pointer-events: none; }
-  .tile-counter .title { font-size: 20px; font-weight: 600; margin-bottom: 5px; color: #6f8298; }
-  .tile-counter .val { font-size: 42px; font-weight: 700; color: #fff; }
-  .tile-counter button { background: rgba(36,58,85,0.3); border: none; color: #dbe5f0; width: 25%; font-size: 36px; font-weight: bold; cursor: pointer; transition: background 0.1s; }
-  .tile-counter button:active { background: rgba(30,111,208,0.6); color: #fff; }
-  .tile-counter button.btn-hit { background: rgba(43,139,255,0.8) !important; color: #fff !important; transition: none !important; }
+  .tile-counter .title { font-size: 20px; font-weight: 600; margin-bottom: 5px; color: var(--tile-lb); }
+  .tile-counter .val { font-size: 42px; font-weight: 700; color: var(--val); }
+  .tile-counter button { background: color-mix(in srgb, var(--tile-bd) 35%, transparent); border: none; color: var(--tile-fg); width: 25%; font-size: 36px; font-weight: bold; cursor: pointer; transition: background 0.1s; }
+  .tile-counter button:active { background: color-mix(in srgb, var(--accent) 55%, transparent); color: var(--sel-on); }
+  .tile-counter button.btn-hit { background: color-mix(in srgb, var(--accent) 75%, transparent) !important; color: var(--sel-on) !important; transition: none !important; }
 </style>
 </head>
 <body>

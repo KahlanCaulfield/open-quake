@@ -551,6 +551,8 @@
     const rot = currentRot();
     const currentMon = () => Object.assign({ knobTurn: 'scroll', knobTap: 'enter' }, (config.settings || {}).monitor || {});
     const mon = currentMon();
+    const currentTheme = () => Object.assign({ appearance: 'system', accent: '#7CFFB2', presets: ['#7CFFB2', '#38B6FF', '#FF4040', '#FFB000'] }, (config.settings || {}).theme || {});
+    const th = currentTheme();
     // ledState = the device's live lighting (loaded when the page opens); fall back to saved config / defaults.
     const L = Object.assign({}, LED_DEFAULT, (config.settings || {}).lighting || {}, ledState || {});
     const effOpts = LED_EFFECTS.map((n, i) => `<option value="${i}">${esc(n)}</option>`).join('');
@@ -619,18 +621,39 @@
         </select></div>
       <p class="hint">A single knob press does the “tap” action. Double-press is unbound in monitor mode.</p>`;
 
+    // Theme tab — global light/dark + accent color
+    const thHtml = `
+      <p class="sectitle">Appearance</p>
+      <div class="row"><label>Mode</label>
+        <select id="sAppear" style="width:230px">
+          <option value="system">System (follow Windows)</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select></div>
+      <p class="hint">Light/dark for the panel, the clocks, and the apps — and passed to web dashboards like a browser's light/dark. Each page can override this in its own <b>Advanced</b> section.</p>
+      <p class="sectitle" style="margin-top:22px">Accent color</p>
+      <div class="row"><label>Accent</label>
+        <input type="color" id="sAccent" value="${esc(th.accent)}" style="width:54px;height:30px;padding:2px">
+        <span id="sAccentVal" class="hint" style="margin:0 0 0 10px">${esc(th.accent)}</span></div>
+      <div class="row"><label style="width:auto">Presets</label>
+        <span id="sPresets" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"></span>
+        <button id="sPresetSave" style="margin-left:10px">＋ Save current</button></div>
+      <p class="hint">Drives the clock digits/hands, the tile-tap highlight, the music play button, and the knob LED ring. Click a preset to apply; <i>Save current</i> stores it (up to 6); right-click a preset to remove it. Changes apply when you Save.</p>`;
+
     el.innerHTML = `
       <p class="sectitle">Settings</p>
       <div class="row" style="gap:6px; margin:0 0 6px">
         <button id="tabSw" class="${tab === 'software' ? 'primary' : ''}">Software</button>
         <button id="tabHw" class="${tab === 'hardware' ? 'primary' : ''}">Hardware</button>
+        <button id="tabTh" class="${tab === 'theme' ? 'primary' : ''}">Theme</button>
         <button id="tabMon" class="${tab === 'monitor' ? 'primary' : ''}">Monitor</button>
       </div>
-      ${tab === 'software' ? swHtml : tab === 'hardware' ? hwHtml : monHtml}
+      ${tab === 'software' ? swHtml : tab === 'hardware' ? hwHtml : tab === 'theme' ? thHtml : monHtml}
       <div class="row" style="margin-top:22px"><button id="sBack">← Back to pages</button></div>`;
 
     document.getElementById('tabSw').onclick = () => { settingsTab = 'software'; renderSettings(); };
     document.getElementById('tabHw').onclick = () => { settingsTab = 'hardware'; renderSettings(); };
+    document.getElementById('tabTh').onclick = () => { settingsTab = 'theme'; renderSettings(); };
     document.getElementById('tabMon').onclick = () => { settingsTab = 'monitor'; renderSettings(); };
     document.getElementById('sBack').onclick = () => { view = 'pages'; render(); };
     const setS = (k, v) => { if (!config.settings) config.settings = {}; config.settings[k] = v; markDirty(); };
@@ -668,13 +691,39 @@
         const ok = await configApi.saveLightingToDevice();
         msg.textContent = ok ? 'saved to device ✓' : 'save failed';
       };
-    } else {
+    } else if (tab === 'monitor') {
       // Monitor mode — knob turn/tap behavior (applied by the main process while in monitor mode)
       const saveMon = patch => { if (!config.settings) config.settings = {}; config.settings.monitor = Object.assign(currentMon(), patch); markDirty(); };
       document.getElementById('sMonTurn').value = mon.knobTurn;
       document.getElementById('sMonTap').value = mon.knobTap;
       document.getElementById('sMonTurn').onchange = e => saveMon({ knobTurn: e.target.value });
       document.getElementById('sMonTap').onchange = e => saveMon({ knobTap: e.target.value });
+    } else {
+      // Theme — global appearance + accent (applied on Save, via the main process)
+      const saveTheme = patch => { if (!config.settings) config.settings = {}; config.settings.theme = Object.assign(currentTheme(), patch); markDirty(); };
+      const av = document.getElementById('sAccentVal');
+      document.getElementById('sAppear').value = th.appearance;
+      document.getElementById('sAppear').onchange = e => saveTheme({ appearance: e.target.value });
+      document.getElementById('sAccent').oninput = e => { av.textContent = e.target.value; };
+      document.getElementById('sAccent').onchange = e => saveTheme({ accent: e.target.value });
+      const renderPresets = () => {
+        const wrap = document.getElementById('sPresets'); wrap.innerHTML = '';
+        (currentTheme().presets || []).forEach((p, i) => {
+          const b = document.createElement('button');
+          b.title = p + ' (right-click to remove)';
+          b.style.cssText = 'width:26px;height:26px;padding:0;border-radius:6px;border:1px solid #2b3c50;background:' + p;
+          b.onclick = () => { document.getElementById('sAccent').value = p; av.textContent = p; saveTheme({ accent: p }); };
+          b.oncontextmenu = ev => { ev.preventDefault(); const pr = (currentTheme().presets || []).slice(); pr.splice(i, 1); saveTheme({ presets: pr }); renderPresets(); };
+          wrap.appendChild(b);
+        });
+      };
+      renderPresets();
+      document.getElementById('sPresetSave').onclick = () => {
+        const cur = document.getElementById('sAccent').value;
+        let pr = (currentTheme().presets || []).slice();
+        if (!pr.includes(cur)) { pr.push(cur); if (pr.length > 6) pr = pr.slice(pr.length - 6); }
+        saveTheme({ presets: pr }); renderPresets();
+      };
     }
   }
 

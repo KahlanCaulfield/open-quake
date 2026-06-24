@@ -124,6 +124,10 @@
       webMode = false; web.classList.remove('show'); grid.style.display = 'grid'; build();
     }
   });
+  panelApi.onTheme(t => {
+    document.body.classList.toggle('light', !(t && t.dark));
+    if (t && t.accent) document.documentElement.style.setProperty('--accent', t.accent);
+  });
   panelApi.onGridList(d => { grids = d.grids; activeId = d.activeId; if (selOpen) renderWheel(); });
   panelApi.onRotation(r => { rotEnabled = !!r.enabled; rotRunning = !!r.running; if (selOpen) renderWheel(); });
 

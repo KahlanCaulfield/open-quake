@@ -1,6 +1,6 @@
 'use strict';
 // DK-QUAKE launcher: multi-grid panel + PC config editor, on the open Aris68Connector driver.
-const { app, BrowserWindow, Tray, Menu, nativeImage, screen, powerSaveBlocker, ipcMain, shell, dialog, session, net, safeStorage, clipboard, globalShortcut } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, screen, powerSaveBlocker, ipcMain, shell, dialog, session, net, safeStorage, clipboard, globalShortcut, nativeTheme } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -19,7 +19,8 @@ const DEFAULT_CONFIG_PATH = path.join(__dirname, 'config.default.json'); // bund
 const LEGACY_CONFIG_PATH = path.join(__dirname, 'config.json');          // pre-userData dev location, migrated once
 const APPS_DIR = path.join(__dirname, '..', 'apps').replace('app.asar', 'app.asar.unpacked'); // unpacked when packaged
 const LED_DEFAULT = { effect: 1, brightness: 200, speed: 128, hue: 128, sat: 255 }; // ring lighting fallback (effect 1 = Solid Color)
-const DEFAULT_SETTINGS = { launchMode: 'editor', micOnLaunch: false, lighting: Object.assign({}, LED_DEFAULT) };
+const THEME_DEFAULT = { appearance: 'system', accent: '#7CFFB2', presets: ['#7CFFB2', '#38B6FF', '#FF4040', '#FFB000'] };
+const DEFAULT_SETTINGS = { launchMode: 'editor', micOnLaunch: false, lighting: Object.assign({}, LED_DEFAULT), theme: Object.assign({}, THEME_DEFAULT) };
 const actionDeps = { fs, shell, exec, execFile, spawn, platform: process.platform, log: message => console.log(message) };
 const mediaKeys = createMediaKeys({ log: message => console.log(message) });
 let firstRun = false;     // set by loadConfig when there was no prior config (fresh install)
@@ -36,6 +37,36 @@ let panelWin = null, configWin = null, tray = null;
 let dashSession = null, cookieFlushT = null;   // dashboard webview session + a debounced cookie-store flush
 const dev = new Aris68Connector({ hid: HID });
 function appSettings() { return Object.assign({}, DEFAULT_SETTINGS, config.settings || {}); }
+// ---- theme (global light/dark + accent, with per-card overrides) ----
+function themeGlobal() { return Object.assign({}, THEME_DEFAULT, (config.settings || {}).theme || {}); }
+function isValidHex(h) { return typeof h === 'string' && /^#[0-9a-fA-F]{6}$/.test(h); }
+// Effective theme for a page: per-card override -> global -> system. Returns { dark, accent }.
+function effectiveTheme(g) {
+  const t = themeGlobal();
+  let appearance = (g && g.appearance && g.appearance !== 'inherit') ? g.appearance : t.appearance;
+  if (appearance !== 'light' && appearance !== 'dark') appearance = nativeTheme.shouldUseDarkColors ? 'dark' : 'light';
+  const accent = (g && isValidHex(g.accent)) ? g.accent : (isValidHex(t.accent) ? t.accent : THEME_DEFAULT.accent);
+  return { dark: appearance === 'dark', accent };
+}
+// Apply the global theme: drive the OS theme source (also sets prefers-color-scheme for web dashboards),
+// repaint the panel chrome for the active page, and follow the accent on the knob ring (unless overridden).
+function applyTheme() {
+  const a = themeGlobal().appearance;
+  try { nativeTheme.themeSource = (a === 'light' || a === 'dark') ? a : 'system'; } catch (e) {}
+  pushTheme();
+  applyKnobSettings();
+}
+function pushTheme() {
+  if (panelWin && !panelWin.isDestroyed()) panelWin.webContents.send('theme', effectiveTheme(activeGrid()));
+}
+// hex -> {hue,sat} (0..255), value fixed full — matches the editor/DK-Suite ring conversion.
+function hexToHsv255(hex) {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || ''); if (!m) return null;
+  const r = parseInt(m[1], 16) / 255, gg = parseInt(m[2], 16) / 255, b = parseInt(m[3], 16) / 255;
+  const mx = Math.max(r, gg, b), mn = Math.min(r, gg, b), d = mx - mn; let h = 0;
+  if (d) { if (mx === r) h = ((gg - b) / d) % 6; else if (mx === gg) h = (b - r) / d + 2; else h = (r - gg) / d + 4; h *= 60; if (h < 0) h += 360; }
+  return { hue: Math.round((h / 360) * 255), sat: Math.round((mx ? d / mx : 0) * 255) };
+}
 // IPC hardening: only accept a channel from the window that legitimately owns it. The panel hosts a
 // <webview> of arbitrary dashboard pages (its own separate webContents), so comparing against
 // panelWin.webContents rejects any guest page — or stray sender — that reaches the preload bridge.
@@ -178,17 +209,22 @@ function appOptionQuery(def, opts, include) {
     return encodeURIComponent(o.key) + '=' + encodeURIComponent(v);
   }).filter(Boolean).join('&');
 }
+// Theme params every app page receives (effective light/dark + accent for that card).
+function themeParams(page) {
+  const t = effectiveTheme(page);
+  return '_dark=' + (t.dark ? '1' : '0') + '&_accent=' + encodeURIComponent(t.accent);
+}
 function appPageUrl(page) {
   const def = loadApps().find(a => a.id === page.app);
   if (!def) return 'about:blank';
   if (def.served) {                                                          // served by the local server (live data, same-origin fetch, grid launch)
     const opts = page.options || {};                                         // non-secret options only; secrets are served by /app-config
-    const qs = appOptionQuery(def, opts, o => o.type !== 'secret');
+    const qs = [appOptionQuery(def, opts, o => o.type !== 'secret'), themeParams(page)].filter(Boolean).join('&');
     return 'http://127.0.0.1:' + serverPort + '/' + def.id + (qs ? '?' + qs : '');
   }
   const file = path.join(APPS_DIR, def.file);
   const opts = page.options || {};
-  const hash = appOptionQuery(def, opts, o => o.type !== 'secret');
+  const hash = [appOptionQuery(def, opts, o => o.type !== 'secret'), themeParams(page)].filter(Boolean).join('&');
   return pathToFileURL(file).href + (hash ? '#' + hash : '');
 }
 function activeServedAppConfig(appId) {
@@ -226,6 +262,7 @@ async function pushToPanel() {
   if (panelWin && !panelWin.isDestroyed()) {
     const g = activeGrid();
     syncPollers(g);                                                // run only the poller the shown page needs (before the webview reloads, so it primes)
+    panelWin.webContents.send('theme', effectiveTheme(g));         // light/dark + accent for this page (chrome paints before the grid renders)
     panelWin.webContents.send('grid', await resolveGridIcons(g));
     panelWin.webContents.send('gridList', { grids: gridList(), activeId: config.activeGridId });
     pushRotationState();
@@ -530,11 +567,14 @@ function openConfigWindow() {
 function lighting() { return Object.assign({}, LED_DEFAULT, (config.settings || {}).lighting || {}); }
 function applyKnobSettings() {
   const L = lighting();
+  const lig = (config.settings && config.settings.lighting) || {};
+  let hue = L.hue, sat = L.sat;
+  if (!lig.accentOverride) { const hs = hexToHsv255(themeGlobal().accent); if (hs) { hue = hs.hue; sat = hs.sat; } }   // ring follows the accent unless its color is overridden
   try { dev.setKnobLed(true); } catch (e) {}              // keep the ring from idle-sleeping (effect 0 = visually off)
   try { dev.setLedEffect(L.effect & 0xFF); } catch (e) {}
   try { dev.setLedBrightness(L.brightness & 0xFF); } catch (e) {}
   try { dev.setLedSpeed(L.speed & 0xFF); } catch (e) {}
-  try { dev.setLedColor(L.hue & 0xFF, L.sat & 0xFF); } catch (e) {}
+  try { dev.setLedColor(hue & 0xFF, sat & 0xFF); } catch (e) {}
   if (L.effect) lastRingEffect = L.effect;
 }
 function applyMic(on) { try { dev.setMic(on); } catch (e) {} micState = !!on; refreshTray(); }
@@ -736,7 +776,7 @@ app.whenReady().then(async () => {
     config = newCfg;
     if (config.grids.some(g => g.id === active)) config.activeGridId = active;
     else if (!config.grids.some(g => g.id === config.activeGridId)) config.activeGridId = (config.grids[0] || {}).id || null;
-    saveConfig(); pushToPanel(); applyKnobSettings(); refreshTray(); applyRotationSettings(wasRot); applyShortcuts();
+    saveConfig(); pushToPanel(); applyKnobSettings(); refreshTray(); applyRotationSettings(wasRot); applyShortcuts(); applyTheme();
   });
   ipcMain.handle('pickProgram', async (e) => {
     if (!isFrom(e, configWin)) return null;
@@ -759,6 +799,8 @@ app.whenReady().then(async () => {
   placePanel();
   if (rotationCfg().enabled) setRotation(true);          // auto-start cycling on launch when enabled
   applyShortcuts();                                       // register per-page global hotkeys
+  applyTheme();                                           // set OS theme source (drives dashboards) + paint panel + knob accent
+  nativeTheme.on('updated', () => { if (themeGlobal().appearance === 'system') applyTheme(); });   // follow the OS light/dark in System mode
   const ls = appSettings();
   if (firstRun || ls.launchMode === 'editor') openConfigWindow();
   else if (ls.launchMode === 'minimized') { openConfigWindow(); if (configWin && !configWin.isDestroyed()) configWin.minimize(); }
