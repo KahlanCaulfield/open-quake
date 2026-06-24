@@ -18,13 +18,15 @@
 
   /* ---- light mode (follows the global theme via the OS color-scheme) ---- */
   @media (prefers-color-scheme: light) {
-    body { background: #eef3f8; color: #1c2a39; }
-    .panel { background: linear-gradient(160deg, #ffffff, #f1f5f9); border-color: #d2dce6; }
-    .ptitle, .glbl, .hlbl, .devhead .sub, .netrow .u, .dim, .mrow .v { color: #5a6c7e; }
-    .mrow .k, .legend span { color: #1c2a39; }
-    .gtrack { stroke: #d8e1ea; }
-    .bar { background: #e2e9f0; }
-    .donut .hole { background: #f1f5f9; }
+    body { background: #d9e1ea; color: #13202c; }                                  /* grey page so the white cards read as cards, not a flat white sheet */
+    .panel { background: #ffffff; border-color: #bac7d5; box-shadow: 0 1px 4px rgba(20,40,70,.10); }
+    .ptitle, .glbl, .hlbl, .devhead .sub, .netrow .u, .dim, .mrow .v, .drow .v, .battsub { color: #46566a; }
+    .mrow .k, .legend span, .devhead .name, .gval, .htot, .battpct, .drow .k { color: #13202c; }
+    .up { color: #0f8a4d; } .down { color: #1574c4; }                              /* darkened so the net speeds stay legible on white */
+    .battfill { background: #0f8a4d; }
+    .gtrack { stroke: #cdd7e2; }
+    .bar { background: #dde4ec; }
+    .donut .hole { background: #ffffff; }
   }
 
   /* ---- left column: CPU + GPU cards (temp + load gauges each) ---- */

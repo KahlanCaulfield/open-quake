@@ -20,11 +20,17 @@
   }
   body.light {
     --bg: radial-gradient(120% 160% at 50% 0%, #eef3f8 0%, #dde7f0 70%);
-    --card-top: #ffffff;
-    --card-bottom: #e9eef4;
+    --card-top: #eef2f7;
+    --card-bottom: #dbe3ec;
     --split: rgba(0, 0, 0, .14);
     --label: #5a6c7e;
   }
+  /* Light mode: accent digits get a black outline (and a darker colon + date) so they read with strong
+     contrast on the pale cards instead of washing out — the glow that works on black is dropped. */
+  body.light .card .d { -webkit-text-stroke: calc(var(--fs) * 0.018) #0f141b; paint-order: stroke fill; text-shadow: none; }
+  body.light .card .ampm { -webkit-text-stroke: 1.5px #0f141b; paint-order: stroke fill; text-shadow: none; }
+  body.light .sep i { background: #0f141b; box-shadow: none; }
+  body.light #corner .cdate, body.light #corner .cdow { color: #26323d; text-shadow: none; }
 
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; overflow: hidden; }
@@ -76,7 +82,7 @@
 
   /* ---- single wide hour card (12h) + AM/PM badge on it ---- */
   .card.wide { width: var(--cw2); }
-  .card .ampm { position: absolute; top: 6%; left: 8%; z-index: 5; pointer-events: none;
+  .card .ampm { position: absolute; top: 3%; left: 15%; z-index: 5; pointer-events: none;
     font-size: clamp(20px, 6.8vh, 80px); font-weight: 800; letter-spacing: .06em; color: var(--digit); text-shadow: var(--digit-glow); }
   /* ---- date / weekday, top-right corner ---- */
   #corner { position: fixed; top: clamp(8px, 3vh, 30px); right: clamp(12px, 3vw, 44px); text-align: right; line-height: 1.12; }

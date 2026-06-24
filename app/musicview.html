@@ -7,9 +7,11 @@
 <style>
   * { box-sizing: border-box; }
   :root { --bg:#05080d; --fg:#e8eef6; --muted:#9fb3c8; --dim:#7e93ab; --surf1:#11202e; --surf2:#0a1119;
-    --tile-bd:#1a2738; --pill:#16202e; --accent:#7CFFB2; }
-  body.light { --bg:#eef3f8; --fg:#1c2a39; --muted:#5a6c7e; --dim:#6a7b8c; --surf1:#ffffff; --surf2:#f1f5f9;
-    --tile-bd:#d2dce6; --pill:#e2e9f0; }
+    --tile-bd:#1a2738; --btn-bd:#1a2738; --pill:#16202e; --pill-fg:var(--accent); --accent:#7CFFB2; }
+  /* Light mode: layered greys (page grey, white cards) with dark outlines + a dark "playing" pill so the
+     accent text stays legible — NOT a flat sheet of white. */
+  body.light { --bg:#e6ecf3; --fg:#12202c; --muted:#566573; --dim:#566573; --surf1:#ffffff; --surf2:#dfe7ef;
+    --tile-bd:#aebccb; --btn-bd:#14202b; --pill:#1b2734; --pill-fg:var(--accent); }
   html, body { margin: 0; width: 100%; height: 100%; }
   body { background: var(--bg); color: var(--fg); overflow: hidden; user-select: none;
     font-family: "Segoe UI", system-ui, sans-serif; }
@@ -30,9 +32,9 @@
   .artist { font-size: 32px; color: var(--muted); margin-top: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .status { display: flex; align-items: center; gap: 12px; margin-top: 26px; font-size: 19px; color: var(--dim); }
   .status .pill { padding: 4px 14px; border-radius: 20px; background: var(--pill);
-    color: var(--accent); font-weight: 700; letter-spacing: .5px; }
+    color: var(--pill-fg); font-weight: 700; letter-spacing: .5px; }
   .controls { display: flex; align-items: center; justify-content: space-between; }
-  .btn { width: 92px; height: 92px; border-radius: 50%; border: 1px solid var(--tile-bd); cursor: pointer; color: var(--fg);
+  .btn { width: 92px; height: 92px; border-radius: 50%; border: 2px solid var(--btn-bd); cursor: pointer; color: var(--fg);
     background: linear-gradient(160deg, var(--surf1), var(--surf2)); display: flex; align-items: center; justify-content: center;
     transition: transform .08s ease; }
   .btn:active { transform: scale(.92); }
@@ -40,6 +42,7 @@
   /* play button carries the accent — the most prominent "live" control on the page */
   .btn.play { width: 116px; height: 116px; color: #04121f; border-color: var(--accent);
     background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 86%, #fff 14%), var(--accent)); }
+  body.light .btn.play { border-color: var(--btn-bd); }   /* dark outline in light mode, like the other buttons */
 
   /* right: the programmable 2x2 grid — a square block with square tiles, matching the Default grid */
   .grid { flex: none; height: 100%; aspect-ratio: 1; display: grid; gap: 16px; }
