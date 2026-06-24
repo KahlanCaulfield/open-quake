@@ -6,9 +6,15 @@ pick the app and set its options — open-quake loads it full-screen on the pane
 no server and no hand-typed URLs.
 
 Included apps:
-- **Flip Clock** — split-flap animation, 12/24-hour, dark/classic theme,
-  optional seconds, and a corner date/day. (12-hour shows a single hour card with an
-  AM/PM badge; 24-hour shows two hour cards.) It ships **enabled by default** (12-hour).
+- **Flip Clock** — split-flap animation, 12/24-hour, optional seconds, and a corner
+  date/day. (12-hour shows a single hour card with an AM/PM badge; 24-hour shows two hour
+  cards.) Follows the global light/dark theme and accent. Ships **enabled by default** (12-hour).
+- **World Clock** — the time in several places at once. Two modes: **US time zones**
+  (Pacific / Mountain / Central / Eastern) or a pick of **2–6 world cities**; each shown as a
+  **digital** readout or an **analog** face. Options include 12/24-hour, optional seconds (with
+  a second hand on the analog faces), and a **per-city label override** (e.g. pick *London* but
+  label it *Edinburgh*). DST-correct via the system's time-zone database; follows the global
+  light/dark theme and accent.
 - **[Music controller](music.md)** — now-playing + transport + a programmable app grid.
 - **[Open WebUI chat + voice](ai-chat.md)** — talk to your own LLM, with knob push-to-talk.
 
