@@ -23,7 +23,9 @@
   }
   const appIconCache = {};   // app value -> dataURL | false (failed) | null (in-flight)
   const urlIconPreview = {}; // iconCache path -> dataURL of a just-fetched URL icon (editor preview only; dodges file:// browser-cache staleness on Refresh)
-  const TYPES = [['', 'Empty'], ['app', 'App / Program'], ['url', 'Website (URL)'], ['page', 'Go to open-quake page'], ['cmd', 'Shell command'], ['open', 'Open file/folder'], ['system', 'System (lock/config)'], ['counter', 'Counter'], ['paste_text', 'Paste Text']];
+  const TYPES = [['', 'Empty'], ['app', 'App / Program'], ['url', 'Website (URL)'], ['page', 'Go to open-quake page'], ['cmd', 'Shell command'], ['open', 'Open file/folder'], ['system', 'System (lock/config)'], ['counter', 'Counter'], ['paste_text', 'Paste Text'], ['key', 'Send keystroke'], ['macro', 'Macro / Steps']];
+  // Step kinds inside a Macro tile (value semantics mirror the matching tile types).
+  const STEP_KINDS = [['key', 'Keystroke'], ['text', 'Type text'], ['delay', 'Delay (ms)'], ['app', 'App / Program'], ['open', 'Open file/folder'], ['url', 'Website (URL)'], ['cmd', 'Shell command'], ['page', 'Go to page'], ['system', 'System'], ['ahk', 'AutoHotkey']];
   const uid = () => 'g' + Math.random().toString(36).slice(2, 8);
   const curGrid = () => config.grids[gi];
   const esc = s => (s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -385,22 +387,26 @@
     const g = curGrid(); const el = document.getElementById('tileform');
     if (!g || ti < 0) { el.innerHTML = '<p class="hint">Pick a tile above to edit it.</p>'; document.getElementById('iconpane').innerHTML = ''; return; }
     const t = g.tiles[ti];
+    if (t.type === 'macro' && !Array.isArray(t.steps)) t.steps = [];
+    let body;
+    if (t.type === 'page') body = `<div class="row"><label>Page</label>${pageSelectHtml(t)}</div>`;
+    else if (t.type === 'macro') body = `<div class="row"><label>Steps</label></div><div id="macroSteps"></div>`;
+    else if (t.type === 'key') body = `<div class="row"><label>Keys</label><input id="tValue" value="${esc(t.value)}" placeholder="${valuePlaceholder('key')}"><button id="tRec" type="button">Record</button></div>`;
+    else body = `<div class="row"><label>Value</label><input id="tValue" value="${esc(t.value)}" placeholder="${valuePlaceholder(t.type)}">${t.type === 'app'
+        ? '<button id="tBrowse">Browse…</button>'
+        : t.type === 'open'
+        ? '<button id="tBrowseFile">File…</button><button id="tBrowseFolder">Folder…</button>'
+        : ''}</div>`;
     el.innerHTML = `<div class="form">
       <p class="sectitle">Tile ${ti + 1}</p>
       <div class="row"><label>Label</label><input id="tLabel" value="${esc(t.label)}"></div>
       <div class="row"><label>Type</label><select id="tType">${TYPES.map(([v, n]) => `<option value="${v}" ${v === (t.type || '') ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
-      <div class="row"><label>${t.type === 'page' ? 'Page' : 'Value'}</label>${t.type === 'page'
-        ? pageSelectHtml(t)
-        : `<input id="tValue" value="${esc(t.value)}" placeholder="${valuePlaceholder(t.type)}">${t.type === 'app'
-          ? '<button id="tBrowse">Browse…</button>'
-          : t.type === 'open'
-          ? '<button id="tBrowseFile">File…</button><button id="tBrowseFolder">Folder…</button>'
-          : ''}`}</div>
+      ${body}
       <div class="row"><button class="danger" id="tClear">Clear tile</button></div>
       <p class="hint">${typeHint(t.type)}</p>
     </div>`;
     document.getElementById('tLabel').oninput = e => { t.label = e.target.value; renderTiles(); markDirty(); };
-    document.getElementById('tType').onchange = e => { const prev = t.type; t.type = e.target.value; if (t.type === 'page' || prev === 'page') t.value = ''; render(); markDirty(); };
+    document.getElementById('tType').onchange = e => { const prev = t.type; t.type = e.target.value; if (t.type === 'page' || prev === 'page') t.value = ''; if (t.type === 'macro' && !Array.isArray(t.steps)) t.steps = []; render(); markDirty(); };
     const tv = document.getElementById('tValue');
     if (tv) tv.oninput = e => { t.value = e.target.value; renderTiles(); renderIconPane(); markDirty(); };
     const tp = document.getElementById('tPage');
@@ -413,7 +419,73 @@
     if (bf) bf.onclick = async () => setVal(await configApi.pickFile());
     const bd = document.getElementById('tBrowseFolder');
     if (bd) bd.onclick = async () => setVal(await configApi.pickFolder());
+    const tRec = document.getElementById('tRec');
+    if (tRec && tv) tRec.onclick = () => captureCombo(tv, c => { t.value = c; tv.value = c; renderTiles(); markDirty(); });
+    if (t.type === 'macro') renderMacroSteps(t);
     renderIconPane();
+  }
+
+  // ---- macro step editor ----
+  function stepValuePlaceholder(kind) {
+    return kind === 'key' ? 'e.g. control+shift+esc' : kind === 'text' ? 'text to type' : kind === 'delay' ? 'milliseconds, e.g. 500'
+      : kind === 'app' ? 'chrome  (or full path)' : kind === 'open' ? 'file or folder path' : kind === 'url' ? 'https://…'
+      : kind === 'cmd' ? 'shell command' : kind === 'page' ? '' : kind === 'system' ? 'lock | mic | monitor | config'
+      : kind === 'ahk' ? 'path to a .ahk file (or a one-line script)' : '';
+  }
+  function renderMacroSteps(t) {
+    if (!Array.isArray(t.steps)) t.steps = [];
+    const host = document.getElementById('macroSteps'); if (!host) return;
+    const others = (config.grids || []).filter(g => g.id !== curGrid().id);
+    const rowHtml = (s, i) => {
+      const kind = s.kind || 'key';
+      const field = kind === 'page'
+        ? `<select class="msVal" data-i="${i}" style="flex:1">${others.map(g => `<option value="${esc(g.id)}" ${g.id === s.value ? 'selected' : ''}>${esc(g.name)}</option>`).join('')}</select>`
+        : `<input class="msVal" data-i="${i}" style="flex:1" value="${esc(s.value || '')}" placeholder="${stepValuePlaceholder(kind)}">`;
+      const rec = kind === 'key' ? `<button class="msRec" data-i="${i}" type="button" title="Record a key combo">⌨</button>` : '';
+      const brow = (kind === 'app' || kind === 'open' || kind === 'ahk') ? `<button class="msBrowse" data-i="${i}" type="button" title="Browse">…</button>` : '';
+      return `<div class="row" style="gap:6px">
+        <select class="msKind" data-i="${i}" style="width:120px;flex:none">${STEP_KINDS.map(([v, n]) => `<option value="${v}" ${v === kind ? 'selected' : ''}>${n}</option>`).join('')}</select>
+        ${field}${rec}${brow}<button class="msUp" data-i="${i}" type="button" title="Move up">↑</button><button class="msDel" data-i="${i}" type="button" title="Remove">✕</button></div>`;
+    };
+    host.innerHTML = (t.steps.length ? t.steps.map(rowHtml).join('') : '<p class="hint">No steps yet — add one below.</p>')
+      + `<div class="row"><button id="msAdd" type="button">+ add step</button></div>`;
+    host.querySelectorAll('.msKind').forEach(el => el.onchange = e => { const i = +e.target.dataset.i; t.steps[i].kind = e.target.value; t.steps[i].value = ''; renderMacroSteps(t); markDirty(); });
+    host.querySelectorAll('.msVal').forEach(el => { const h = e => { t.steps[+e.target.dataset.i].value = e.target.value; markDirty(); }; el.oninput = h; el.onchange = h; });
+    host.querySelectorAll('.msRec').forEach(el => el.onclick = e => { const i = +e.currentTarget.dataset.i; const inp = host.querySelector(`.msVal[data-i="${i}"]`); if (inp) captureCombo(inp, c => { t.steps[i].value = c; inp.value = c; markDirty(); }); });
+    host.querySelectorAll('.msBrowse').forEach(el => el.onclick = async e => { const i = +e.currentTarget.dataset.i; const k = t.steps[i].kind; const p = k === 'app' ? await configApi.pickProgram() : await configApi.pickFile(); if (p) { t.steps[i].value = p; renderMacroSteps(t); markDirty(); } });
+    host.querySelectorAll('.msUp').forEach(el => el.onclick = e => { const i = +e.currentTarget.dataset.i; if (i > 0) { const x = t.steps.splice(i, 1)[0]; t.steps.splice(i - 1, 0, x); renderMacroSteps(t); markDirty(); } });
+    host.querySelectorAll('.msDel').forEach(el => el.onclick = e => { t.steps.splice(+e.currentTarget.dataset.i, 1); renderMacroSteps(t); markDirty(); });
+    document.getElementById('msAdd').onclick = () => { t.steps.push({ kind: 'key', value: '' }); renderMacroSteps(t); markDirty(); };
+  }
+  // Capture one key combo from a focused input -> "control+shift+c" (matches mediaKeys.tapCombo parsing).
+  function keyNameFromEvent(k) {
+    if (!k || k === 'Control' || k === 'Shift' || k === 'Alt' || k === 'Meta') return null;   // modifier alone: keep waiting
+    const map = { ' ': 'space', Escape: 'escape', Enter: 'enter', Tab: 'tab', Backspace: 'backspace', Delete: 'delete', ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right', PageUp: 'pageup', PageDown: 'pagedown', Home: 'home', End: 'end' };
+    if (map[k]) return map[k];
+    return k.toLowerCase();
+  }
+  function comboFromEvent(e) {
+    const key = keyNameFromEvent(e.key); if (!key) return null;
+    const mods = [];
+    if (e.ctrlKey) mods.push('control');
+    if (e.shiftKey) mods.push('shift');
+    if (e.altKey) mods.push('alt');
+    if (e.metaKey) mods.push('command');
+    return [...mods, key].join('+');
+  }
+  function captureCombo(inputEl, apply) {
+    const prev = inputEl.value;
+    inputEl.value = 'press keys…'; inputEl.focus();
+    const onKey = e => {
+      e.preventDefault();
+      const c = comboFromEvent(e);
+      if (!c) return;                                   // modifier-only press: wait for a real key
+      inputEl.removeEventListener('keydown', onKey);
+      apply(c);
+    };
+    const onBlur = () => { inputEl.removeEventListener('keydown', onKey); inputEl.removeEventListener('blur', onBlur); if (inputEl.value === 'press keys…') inputEl.value = prev; };
+    inputEl.addEventListener('keydown', onKey);
+    inputEl.addEventListener('blur', onBlur);
   }
 
   // ---- icon box (right) ----
@@ -483,7 +555,7 @@
     else el.innerHTML = t.icon ? `<span class="em">${esc(t.icon)}</span>` : `<span class="none">no emoji</span>`;
   }
 
-  function valuePlaceholder(type) { return type === 'url' ? 'https://…' : type === 'app' ? 'chrome  (or full path)' : type === 'cmd' ? 'start ms-settings:' : type === 'system' ? 'lock  |  config  |  mic  |  monitor' : type === 'counter' ? 'Starting value (e.g. 0)' : type === 'paste_text' ? 'Text to paste on tap' : ''; }
+  function valuePlaceholder(type) { return type === 'url' ? 'https://…' : type === 'app' ? 'chrome  (or full path)' : type === 'cmd' ? 'start ms-settings:' : type === 'system' ? 'lock  |  config  |  mic  |  monitor' : type === 'counter' ? 'Starting value (e.g. 0)' : type === 'paste_text' ? 'Text to paste on tap' : type === 'key' ? 'e.g. control+shift+esc' : ''; }
   function pageSelectHtml(t) {
     const others = (config.grids || []).filter(g => g.id !== curGrid().id);
     if (!others.length) return '<span class="hint">No other pages to link to yet — add one first.</span>';
@@ -497,6 +569,8 @@
     if (type === 'system') return 'lock = lock screen · config = open this editor · mic = toggle the device mic · monitor = hide the panel and use the device as a normal monitor (return via the tray).';
     if (type === 'counter') return 'Tap the left half of the tile to decrement, the right half to increment. The value persists across sessions.';
     if (type === 'paste_text') return 'Tap this tile to paste the text into whatever window is active on your PC (overwrites your clipboard).';
+    if (type === 'key') return 'Sends a key combo to the active window. Type it (e.g. control+shift+esc) or click Record and press the keys.';
+    if (type === 'macro') return 'Runs the steps in order on tap — keystrokes, typed text, delays, app/command/URL launches, page switches, or AutoHotkey.';
     return '';
   }
 

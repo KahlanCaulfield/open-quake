@@ -3,6 +3,10 @@
 // Keeps the { transport(cmd), volume(v), pasteShortcut() } interface so main.js
 // doesn't know the backend. Swap this file to add platform backends later.
 
+// Macro key combos: map friendly tokens to robotjs names. Modifiers robotjs knows: control/shift/alt/command.
+const MOD_ALIAS = { ctrl: 'control', control: 'control', ctl: 'control', shift: 'shift', alt: 'alt', option: 'alt', opt: 'alt', win: 'command', cmd: 'command', command: 'command', meta: 'command', super: 'command' };
+const KEY_ALIAS = { esc: 'escape', escape: 'escape', del: 'delete', 'delete': 'delete', ins: 'insert', insert: 'insert', 'return': 'enter', enter: 'enter', space: 'space', spacebar: 'space', tab: 'tab', backspace: 'backspace', bksp: 'backspace', up: 'up', down: 'down', left: 'left', right: 'right', pgup: 'pageup', pageup: 'pageup', pgdn: 'pagedown', pagedown: 'pagedown', home: 'home', end: 'end', plus: '+' };
+
 function createMediaKeys({ log = () => {} } = {}) {
   let robot = null;
   try { robot = require('@jitsi/robotjs'); }
@@ -39,6 +43,24 @@ function createMediaKeys({ log = () => {} } = {}) {
     click(button) { if (robot) { try { robot.mouseClick(button || 'left'); } catch (e) {} } },
     scroll(dy) { if (robot) { try { robot.scrollMouse(0, dy); } catch (e) {} } },
     tapKey(name) { if (robot) { try { robot.keyTap(name); } catch (e) {} } },
+    // Macro: send a key combo like "control+shift+c". Last non-modifier token is the key.
+    tapCombo(combo) {
+      if (!robot) return false;
+      const toks = String(combo || '').split('+').map(s => s.trim().toLowerCase()).filter(Boolean);
+      const mods = []; let key = null;
+      for (const t of toks) {
+        if (MOD_ALIAS[t]) { if (!mods.includes(MOD_ALIAS[t])) mods.push(MOD_ALIAS[t]); }
+        else key = KEY_ALIAS[t] || t;
+      }
+      if (!key) return false;
+      try { mods.length ? robot.keyTap(key, mods) : robot.keyTap(key); return true; }
+      catch (e) { log('keyTap failed for "' + combo + '": ' + e.message); return false; }
+    },
+    // Macro: type literal text into the active window (does NOT touch the clipboard, unlike pasteShortcut).
+    typeString(text) {
+      if (!robot || text == null || text === '') return false;
+      try { robot.typeString(String(text)); return true; } catch (e) { log('typeString failed: ' + e.message); return false; }
+    },
   };
 }
 

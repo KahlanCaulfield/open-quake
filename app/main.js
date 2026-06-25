@@ -14,6 +14,7 @@ const { createMediaKeys } = require('./mediaKeys');
 const { createSecretStore } = require('./secretStore');
 const nowplaying = require('./nowplaying');   // same singleton sysserver polls — read its snapshot to target transport
 const haschedule = require('./haschedule');   // HA Schedule dev app — fed HA creds from .env, polled while shown
+const ahk = require('./ahk');                  // macro "ahk" step backend (shells out to an installed AutoHotkey.exe)
 const HA_SCHEDULE_APPS = ['haschedule', 'agenda', 'events'];   // dev apps backed by the shared HA /haschedule-data snapshot
 
 const USER_DIR = app.getPath('userData');
@@ -421,27 +422,50 @@ function launchAppValue(value) { actionRunner.launchApp(value, actionDeps).catch
 function runShellCommand(value) { return actionRunner.runShellCommand(value, actionDeps); }
 function lockWorkstation() { return actionRunner.lockWorkstation(actionDeps); }
 
-function runAction(a) {
+// A tile fires either a single action (its type/value) or a macro (an ordered list of steps). Both run
+// through runStep, so a plain tile is just a one-step macro. runAction is async (steps can include delays);
+// callers fire-and-forget. macroBusy serializes macros so mashing a tile can't overlap runs.
+let macroBusy = false;
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+async function runAction(a) {
   if (!a || typeof a.type !== 'string') return;
-  if (a.value != null && typeof a.value !== 'string') return;   // value, when present, is always a string (url/app/cmd/open/page/system)
   if (a.type === 'system' && a.value === 'config') return openConfigWindow();
+  if (a.type === 'macro') {
+    if (macroBusy) return;                                       // ignore taps while a macro is mid-run
+    macroBusy = true;
+    console.log('launch macro:', a.label, '(' + ((a.steps || []).length) + ' steps)');
+    try { for (const s of (Array.isArray(a.steps) ? a.steps : [])) { try { await runStep(s); } catch (e) { console.log('macro step error:', e.message); } } }
+    finally { macroBusy = false; }
+    return;
+  }
+  if (a.value != null && typeof a.value !== 'string') return;   // value, when present, is a string
   console.log('launch:', a.label, '->', a.type, a.value);
-  try {
-    switch (a.type) {
-      case 'url': openExternalUrl(a.value); break;
-      case 'app': launchAppValue(a.value); break;
-      case 'cmd': runShellCommand(a.value); break;
-      case 'open': shell.openPath(a.value); break;
-      case 'page': gotoGrid(a.value, true); if (rotateRunning) scheduleRotation(); break;   // switch the panel to another page
-      case 'system':
-        if (a.value === 'lock') lockWorkstation();
-        else if (a.value === 'mic') toggleMic();
-        else if (a.value === 'monitor') enterMonitorMode();   // hand the device screen to Windows; return via the tray
-        break;
-      case 'paste_text': pasteText(a.value); break;
-      case 'counter': break;   // counter changes are saved by the panel directly via saveTileValue IPC; no main-process action needed on tap
-    }
-  } catch (e) { console.log('action error:', e.message); }
+  try { await runStep({ kind: a.type, value: a.value }); } catch (e) { console.log('action error:', e.message); }
+}
+// One macro step (also the single-action path). New kinds: key (combo), text (typed), delay (ms).
+async function runStep(step) {
+  if (!step || typeof step.kind !== 'string') return;
+  const value = step.value;
+  if (value != null && typeof value !== 'string') return;
+  switch (step.kind) {
+    case 'url': openExternalUrl(value); break;
+    case 'app': launchAppValue(value); break;
+    case 'cmd': runShellCommand(value); break;
+    case 'open': shell.openPath(value); break;
+    case 'page': gotoGrid(value, true); if (rotateRunning) scheduleRotation(); break;   // switch the panel to another page
+    case 'system':
+      if (value === 'lock') lockWorkstation();
+      else if (value === 'mic') toggleMic();
+      else if (value === 'monitor') enterMonitorMode();   // hand the device screen to Windows; return via the tray
+      else if (value === 'config') openConfigWindow();
+      break;
+    case 'paste_text': pasteText(value); break;
+    case 'key': mediaKeys.tapCombo(value); break;
+    case 'text': if (!mediaKeys.typeString(value)) pasteText(value); break;   // type literally; fall back to clipboard paste
+    case 'delay': await sleep(Math.max(0, Math.min(60000, parseInt(value, 10) || 0))); break;
+    case 'ahk': ahk.run(value, { ahkPath: appSettings().ahkPath }); break;   // AutoHotkey script (inline or .ahk path), Windows-only
+    case 'counter': break;   // counter changes are saved by the panel directly via saveTileValue IPC
+  }
 }
 
 // Paste-text tile: write the configured text to the Windows clipboard, then synthesize Ctrl+V into the
