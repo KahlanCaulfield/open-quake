@@ -17,4 +17,5 @@ Detailed guides for open-quake. Back to the [project README](../README.md).
 ## Under the hood
 
 - **[Building & how it works](building.md)** — hardware, build from source, code layout
+- **[Drop-in apps spec](drop-in-spec.md)** — integration spec for fork maintainers
 - **[Device protocol](DEVICE_PROTOCOL.md)** — the reverse-engineered HID protocol
